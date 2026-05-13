@@ -22,7 +22,7 @@ def _invoice_key(p: Path) -> str:
     return f"INV-{parts[1]}"
 
 
-@pytest.fixture(scope="module")
+@pytest.fixture(scope="function")
 def graph_and_db(tmp_path_factory):
     db = tmp_path_factory.mktemp("intdb") / "i.db"
     init_db(db, seed_path=SEED, reset=True)
