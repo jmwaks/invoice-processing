@@ -69,3 +69,45 @@ def test_ingest_skips_llm_when_invoice_already_seeded(tmp_path: Path):
 
     assert out.invoice is pre_invoice
     assert any(e["kind"] == "ingest.skipped" for e in state.events)
+
+
+def test_ingest_passes_text_match_through_from_llm(monkeypatch, tmp_path):
+    """The ingest agent must propagate text_match from the LLM response to state."""
+    from unittest.mock import MagicMock
+    from pathlib import Path
+
+    from app.agents.ingest import IngestResponse, run_ingest
+    from app.graph.state import InvoiceData, InvoiceState, SuspicionSignal
+    from app.logging_.event_emitter import EventEmitter
+
+    invoice_text = "URGENT — wire transfer required within 24 hours. Vendor: X. Total: $100."
+    src = tmp_path / "inv.txt"
+    src.write_text(invoice_text)
+
+    fake_invoice = InvoiceData(
+        invoice_number="X-1", vendor="X", date=None, due_date=None,
+        line_items=[], subtotal=None, tax_amount=None, total=100.0, raw_text=invoice_text,
+    )
+    fake_response = IngestResponse(
+        invoice=fake_invoice,
+        suspicion_signals=[
+            SuspicionSignal(
+                kind="wire_transfer_demand",
+                detail="demands wire within 24 hours",
+                severity="high",
+                text_match="wire transfer required within 24 hours",
+            ),
+        ],
+        extraction_confidence=0.9,
+    )
+    fake_meta = MagicMock(tokens_in=1, tokens_out=1, latency_ms=1, model="fake")
+
+    fake_llm = MagicMock()
+    fake_llm.structured_complete.return_value = (fake_response, fake_meta)
+
+    state = InvoiceState(run_id="r1", source_path=str(src), file_format="txt")
+    emitter = EventEmitter("r1", state.events, tmp_path)
+    out = run_ingest(state, llm=fake_llm, emitter=emitter)
+
+    assert len(out.suspicion_signals) == 1
+    assert out.suspicion_signals[0].text_match == "wire transfer required within 24 hours"

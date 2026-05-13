@@ -34,6 +34,10 @@ Rules:
   * round-number totals on otherwise odd line items
   * generic or alarming vendor names
   * unknown / made-up looking item names
+- For each suspicion signal, when possible, set `text_match` to the EXACT verbatim
+  phrase from the source that triggered the signal (e.g. "wire transfer required
+  within 24 hours"). The phrase must appear in the source character-for-character.
+  Omit `text_match` (return null) only when no single phrase captures the signal.
 - Confidence is your self-assessment: 1.0 = perfect, 0.5 = needs human re-check, <0.3 = unreadable.
 
 Return JSON matching this schema exactly:
@@ -43,7 +47,7 @@ Return JSON matching this schema exactly:
     line_items:[{item, quantity, unit_price, notes}],
     subtotal, tax_amount, total, currency, payment_terms, raw_text
   },
-  "suspicion_signals": [{ kind, detail, severity }],
+  "suspicion_signals": [{ kind, detail, severity, text_match }],
   "extraction_confidence": number
 }
 The raw_text field should echo the input text exactly.
