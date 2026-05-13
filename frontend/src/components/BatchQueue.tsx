@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { listRuns, runBatch } from "../api/client.ts";
 import { subscribeToRun } from "../api/sse.ts";
@@ -12,6 +12,14 @@ export function BatchQueue() {
   const activeId = useRunStore((s) => s.activeRunId);
   const runs = useRunStore((s) => s.runs);
   const [running, setRunning] = useState(false);
+  const subs = useRef<Map<string, () => void>>(new Map());
+
+  useEffect(() => {
+    return () => {
+      subs.current.forEach((close) => close());
+      subs.current.clear();
+    };
+  }, []);
 
   // NOTE: We deliberately do NOT open an SSE connection for every run in a
   // batch. HTTP/1.1 caps at ~6 concurrent connections per origin, so 16 streams
@@ -21,9 +29,12 @@ export function BatchQueue() {
   // (handled in the row onClick below).
   const handleBatch = async () => {
     setRunning(true);
-    await runBatch();
-    setRunning(false);
-    refetch();
+    try {
+      await runBatch();
+      refetch();
+    } finally {
+      setRunning(false);
+    }
   };
 
   return (
@@ -43,9 +54,10 @@ export function BatchQueue() {
           <li
             key={r.run_id}
             onClick={() => {
-              if (!runs[r.run_id]) {
+              if (!runs[r.run_id] && !subs.current.has(r.run_id)) {
                 initializeRun(r.run_id);
-                subscribeToRun(r.run_id, (e) => appendEvent(r.run_id, e));
+                const close = subscribeToRun(r.run_id, (e) => appendEvent(r.run_id, e));
+                subs.current.set(r.run_id, close);
               }
               selectRun(r.run_id);
             }}

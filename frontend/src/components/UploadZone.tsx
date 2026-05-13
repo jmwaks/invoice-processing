@@ -1,4 +1,4 @@
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { uploadInvoice } from "../api/client.ts";
 import { subscribeToRun } from "../api/sse.ts";
 import { useRunStore } from "../store/runStore.ts";
@@ -7,13 +7,22 @@ export function UploadZone() {
   const [drag, setDrag] = useState(false);
   const initializeRun = useRunStore((s) => s.initializeRun);
   const appendEvent = useRunStore((s) => s.appendEvent);
+  const subs = useRef<Array<() => void>>([]);
+
+  useEffect(() => {
+    return () => {
+      subs.current.forEach((close) => close());
+      subs.current = [];
+    };
+  }, []);
 
   const onFiles = useCallback(async (files: FileList | null) => {
     if (!files || files.length === 0) return;
     const file = files[0];
     const { run_id } = await uploadInvoice(file);
     initializeRun(run_id);
-    subscribeToRun(run_id, (e) => appendEvent(run_id, e));
+    const close = subscribeToRun(run_id, (e) => appendEvent(run_id, e));
+    subs.current.push(close);
   }, [initializeRun, appendEvent]);
 
   return (
