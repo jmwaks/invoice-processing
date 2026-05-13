@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any
+from typing import Any, Callable
 
 from langgraph.graph import END, StateGraph
 
@@ -14,33 +14,37 @@ from app.graph.state import InvoiceState
 from app.llm.grok_client import GrokClient
 from app.logging_.event_emitter import EventEmitter
 
+EmitterFactory = Callable[[InvoiceState, Path], EventEmitter]
 
-def _emitter_for(state: InvoiceState, log_dir: Path) -> EventEmitter:
+
+def _default_emitter_factory(state: InvoiceState, log_dir: Path) -> EventEmitter:
     return EventEmitter(state.run_id, state.events, log_dir)
 
 
 def build_graph(
     *, llm: GrokClient, db_path: Path, log_dir: Path,
     paid_invoices: set[str] | None = None,
+    emitter_factory: EmitterFactory | None = None,
 ) -> Any:  # noqa: ANN401
     if paid_invoices is None:
         paid_invoices = set()
+    make_emitter = emitter_factory or _default_emitter_factory
     graph = StateGraph(InvoiceState)
 
     def ingest_node(state: InvoiceState) -> InvoiceState:
-        return run_ingest(state, llm=llm, emitter=_emitter_for(state, log_dir))
+        return run_ingest(state, llm=llm, emitter=make_emitter(state, log_dir))
 
     def validate_node(state: InvoiceState) -> InvoiceState:
-        return run_validate(state, db_path=db_path, emitter=_emitter_for(state, log_dir))
+        return run_validate(state, db_path=db_path, emitter=make_emitter(state, log_dir))
 
     def approve_node(state: InvoiceState) -> InvoiceState:
-        return run_approve(state, llm=llm, emitter=_emitter_for(state, log_dir))
+        return run_approve(state, llm=llm, emitter=make_emitter(state, log_dir))
 
     def pay_node(state: InvoiceState) -> InvoiceState:
-        return run_pay(state, emitter=_emitter_for(state, log_dir), paid_invoices=paid_invoices)
+        return run_pay(state, emitter=make_emitter(state, log_dir), paid_invoices=paid_invoices)
 
     def log_node_fn(state: InvoiceState) -> InvoiceState:
-        return run_log(state, emitter=_emitter_for(state, log_dir))
+        return run_log(state, emitter=make_emitter(state, log_dir))
 
     graph.add_node("ingest", ingest_node)
     graph.add_node("validate", validate_node)

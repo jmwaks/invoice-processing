@@ -33,6 +33,20 @@ make seed              # creates data/inventory.db from seed.yaml
 make demo              # runs all 16 sample invoices via CLI
 ```
 
+For a single invoice (with per-node progress on stderr):
+
+```bash
+cd backend
+../.venv/bin/python -m app.main --invoice_path=data/invoices/invoice_1001.txt
+
+# Useful flags:
+#   --quiet   suppress progress output (logs still written to ./logs/<run_id>.jsonl)
+#   --json    emit the final state as JSON on stdout (implies --quiet)
+#   --batch   process every invoice in data/invoices/
+```
+
+A run takes ~60-90s — the approve agent makes 3-4 sequential LLM calls (investigate + propose + critique + finalize). Progress lines like `[approve]   investigate` and `[approve]     tool: lookup_inventory(...)` tell you what's happening.
+
 For the UI:
 
 ```bash
@@ -40,7 +54,7 @@ make dev               # FastAPI on :8000
 cd frontend && npm install && npm run dev    # React on :5173
 ```
 
-Open `http://localhost:5173`, drop any file from `data/invoices/`, watch the agents work.
+Open `http://localhost:5173`, drop any file from `data/invoices/`, watch the agents work. A full walkthrough is in [`docs/DEMO.md`](docs/DEMO.md).
 
 ## Architecture
 
@@ -89,3 +103,13 @@ backend/  — python + langgraph + fastapi
 frontend/ — vite + react + tailwind + zustand
 docs/     — design spec + this plan
 ```
+
+## Recent additions on `feature/build-solution`
+
+Three features were added in this branch, each with its own implementation plan under [`docs/superpowers/plans/`](docs/superpowers/plans/):
+
+1. **Approve-agent tool use** ([plan](docs/superpowers/plans/2026-05-13-approve-agent-tool-use.md)). On middle-band cases, the LLM may call `lookup_inventory`, `lookup_vendor`, or `recompute_totals` via xAI's function-calling API. Captured on `Decision.tool_calls` and surfaced in the timeline + critique panel.
+2. **Reconciliation / retry UI** ([plan](docs/superpowers/plans/2026-05-13-reconciliation-retry-ui.md)). Edit any failed extraction in place, "Save & retry" dispatches a child run that skips ingest. `POST /api/runs/{id}/retry` is the new endpoint; runs link back to their parent via `parent_run_id`.
+3. **Business-metrics tile** ([plan](docs/superpowers/plans/2026-05-13-business-metrics-tile.md)). New `GET /api/metrics` aggregates the in-memory registry; `MetricsTile` pins it to the top of the dashboard. Configurable `MANUAL_COST_PER_INVOICE_USD` drives the simulated-savings figure.
+
+Plus: CLI now emits per-node progress on stderr ([`ConsoleEmitter`](backend/app/logging_/event_emitter.py)) so 60-90s runs aren't silent. Full demo runbook lives in [`docs/DEMO.md`](docs/DEMO.md).

@@ -12,6 +12,7 @@ from app.db.init_db import init_db
 from app.graph.builder import build_graph
 from app.graph.state import InvoiceState
 from app.llm.grok_client import GrokClient
+from app.logging_.event_emitter import ConsoleEmitter, EventEmitter
 from app.parsers.file_loader import load_invoice_file
 
 # Resolve seed path relative to this file so it works regardless of CWD.
@@ -43,7 +44,7 @@ def _format_summary(final: dict[str, Any]) -> str:
     return "\n".join(lines)
 
 
-def _build_runtime(settings: Any) -> tuple[GrokClient, Any, set[str]]:
+def _build_runtime(settings: Any, *, quiet: bool) -> tuple[GrokClient, Any, set[str]]:
     """Build the shared GrokClient and compiled graph once for all runs."""
     db = settings.invoice_processing_db_path
     if not db.exists():
@@ -61,9 +62,14 @@ def _build_runtime(settings: Any) -> tuple[GrokClient, Any, set[str]]:
         model=settings.xai_model,
     )
     paid: set[str] = set()
+
+    def emitter_factory(state: InvoiceState, log_dir: Path) -> EventEmitter:
+        cls = EventEmitter if quiet else ConsoleEmitter
+        return cls(state.run_id, state.events, log_dir)
+
     graph = build_graph(
         llm=llm, db_path=db, log_dir=settings.invoice_processing_log_dir,
-        paid_invoices=paid,
+        paid_invoices=paid, emitter_factory=emitter_factory,
     )
     return llm, graph, paid
 
@@ -84,9 +90,12 @@ def main() -> int:
     ap.add_argument("--batch", action="store_true",
                     help="Run all invoices in INVOICE_PROCESSING_INVOICES_DIR")
     ap.add_argument("--json", action="store_true", help="Print final state as JSON")
+    ap.add_argument("--quiet", action="store_true",
+                    help="Suppress per-node progress output on stderr")
     args = ap.parse_args()
     settings = get_settings()
-    _llm, graph, _paid = _build_runtime(settings)
+    # --json mode implies --quiet so stdout stays parseable
+    _llm, graph, _paid = _build_runtime(settings, quiet=args.quiet or args.json)
 
     if args.batch:
         paths = sorted(p for p in settings.invoice_processing_invoices_dir.iterdir()
