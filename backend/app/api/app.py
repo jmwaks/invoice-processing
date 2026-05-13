@@ -40,6 +40,7 @@ def create_app(
         allow_credentials=False, allow_methods=["*"], allow_headers=["*"],
     )
     app.include_router(build_router(registry=registry, db_path=db_path, graph=graph))
+    app.state.registry = registry
     return app
 
 

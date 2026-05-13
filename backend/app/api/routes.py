@@ -121,6 +121,53 @@ def build_router(*, registry: RunRegistry, db_path: Path, graph: Any) -> APIRout
             asyncio.create_task(_one(r.run_id))
         return {"run_ids": [r.run_id for r in runs], "total": len(invoices)}
 
+    @router.get("/metrics")
+    async def metrics() -> dict[str, Any]:
+        from app.config import get_settings
+        manual_cost = get_settings().manual_cost_per_invoice_usd
+
+        total = 0
+        approved = 0
+        rejected = 0
+        needs_review = 0
+        unprocessable = 0
+        dollars_approved = 0.0
+        durations_s: list[float] = []
+
+        for rid in registry.list_ids():
+            run = registry.get(rid)
+            if run is None:
+                continue
+            total += 1
+            decision = run.state.decision
+            if decision is not None:
+                if decision.outcome == "approved":
+                    approved += 1
+                    if run.state.invoice and run.state.invoice.total:
+                        dollars_approved += float(run.state.invoice.total)
+                elif decision.outcome == "rejected":
+                    rejected += 1
+                elif decision.outcome == "needs_review":
+                    needs_review += 1
+            elif run.state.error:
+                unprocessable += 1
+
+            if run.completed_at is not None and run.created_at is not None:
+                durations_s.append((run.completed_at - run.created_at).total_seconds())
+
+        avg_run_seconds = (sum(durations_s) / len(durations_s)) if durations_s else None
+        return {
+            "total_runs": total,
+            "approved_count": approved,
+            "rejected_count": rejected,
+            "needs_review_count": needs_review,
+            "unprocessable_count": unprocessable,
+            "total_dollars_approved": round(dollars_approved, 2),
+            "simulated_dollars_saved": round(total * manual_cost, 2),
+            "avg_run_seconds": round(avg_run_seconds, 2) if avg_run_seconds is not None else None,
+            "manual_cost_per_invoice_usd": manual_cost,
+        }
+
     @router.get("/inventory")
     async def inventory() -> dict[str, Any]:
         conn = sqlite3.connect(db_path)
