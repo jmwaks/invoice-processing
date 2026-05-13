@@ -79,6 +79,23 @@ The plan is mostly clean but had a few authored-once-not-tested bugs:
 - Collapse to single combined review for scaffolding/config/pure-function tasks. Keep dual review (spec then quality) for state machines, API surfaces, graph wiring, payment paths, multi-module touches.
 - Model selection: haiku for mechanical scaffolding with fully-specified content (README, basic file creation); sonnet for integration logic; opus for graph wiring and approval prompts.
 
+## Plan pre-flight patterns (UI redesign session, 2026-05-13)
+
+Patterns that paid off when running 9 bundles end-to-end:
+
+- **Filename mismatches between plan and disk.** Plan EmptyState referenced `INV-1001.txt`/`INV-1003.json`/`INV-1012.pdf` but real files are `invoice_1001.txt`/`invoice_1003.txt`/`invoice_1012.pdf`. Without pre-flight catch, all three demo sample buttons would 404. Pre-flight: `ls` the referenced directory before approving the bundle.
+- **`noUnusedLocals` catches planted-but-unused imports.** Plan's BatchTable imports `Flag` but the Signals column is empty per plan comment — would fail tsc. Plan's `invoiceValidation.ts` imports `LineItem` but only uses it via indexed-access type (`InvoiceData["line_items"][0]`), which doesn't reference the identifier — also fails. Pre-flight: scan plan code for imports vs. usages.
+- **Plan code can have its own bugs that pass review.** Plan's CaseFilePage `getRun(...).then(...).finally(...)` had no `.catch` — unhandled rejection on network failure. Caught by quality-review subagent, fixed inline with one-line `.catch(pushToast)`. Pre-flight: when reviewing plan code for promise chains, demand a catch.
+- **Subagent prompts must preserve prior inline fixes when a later task re-writes the same file.** Task 27 rewrote CaseFilePage from scratch; without an explicit "preserve `.catch`" instruction, the fix would have been reverted. When a later task replaces a file you've patched, the prompt must list each patch to keep.
+
+## Subagent efficiency patterns
+
+- **Bundle aggressively when plan code is fully prescribed.** 29 tasks → 9 bundles. Per-bundle: one implementer + one (or two) reviewers, vs. 29 × 3 = 87 dispatches. ~3× fewer dispatches at the same quality bar.
+- **Collapse dual review → single combined review for scaffolding / pure-utility / display-only bundles.** Keep dual review (spec then quality) for state machines (CaseFilePage hydration + SSE), API surfaces (sample endpoint), and full-page assembly.
+- **Skip `npm run build` in intermediate task commits within a bundle.** `tsc --noEmit` catches the issues that matter; reserve the full Vite build for the end of each bundle (or end of the whole project). Cuts subagent wall-time noticeably.
+- **One-line fixes go inline.** Don't dispatch a fix-subagent for a single Edit. Per `tasks/lessons.md` predecessors.
+- **Defer manual dev-server walkthroughs to one consolidated pass at the end.** Subagents can't drive browsers; phase-boundary manual checks in the plan are for the human. Mention this in each implementer prompt so they don't try.
+
 ## Strict-mypy / strict-ruff retrofit
 
 When introducing `mypy --strict` to a codebase not written for it, expect ~50-200 errors at first run. Fix the easy ones (missing return annotations, `dict[str, Any]` substitutions, `Optional` narrowing). For third-party gaps (openai overloads, pyyaml/fitz untyped), use targeted `# type: ignore[code]` instead of fighting them.
