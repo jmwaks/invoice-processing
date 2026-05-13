@@ -1,0 +1,38 @@
+from __future__ import annotations
+import asyncio
+import json
+from datetime import datetime, timezone
+from pathlib import Path
+from typing import Any
+
+
+class EventEmitter:
+    def __init__(
+        self,
+        run_id: str,
+        state_events: list[dict],
+        log_dir: Path,
+        queue: asyncio.Queue | None = None,
+    ) -> None:
+        self.run_id = run_id
+        self.state_events = state_events
+        self.log_dir = log_dir
+        self.log_dir.mkdir(parents=True, exist_ok=True)
+        self.log_path = self.log_dir / f"{run_id}.jsonl"
+        self.queue = queue
+
+    def emit(self, kind: str, **payload: Any) -> dict:
+        event: dict[str, Any] = {
+            "kind": kind,
+            "ts": datetime.now(timezone.utc).isoformat(),
+            **payload,
+        }
+        self.state_events.append(event)
+        with self.log_path.open("a") as f:
+            f.write(json.dumps(event, default=str) + "\n")
+        if self.queue is not None:
+            try:
+                self.queue.put_nowait(event)
+            except asyncio.QueueFull:
+                pass
+        return event
