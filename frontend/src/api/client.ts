@@ -80,3 +80,11 @@ export async function getMetrics(): Promise<Metrics> {
   if (!resp.ok) throw new Error(`metrics fetch failed: ${resp.status}`);
   return resp.json();
 }
+
+export async function createSampleRun(filename: string): Promise<{ run_id: string }> {
+  const resp = await fetch(`/api/runs/sample/${encodeURIComponent(filename)}`, {
+    method: "POST",
+  });
+  if (!resp.ok) throw new Error(`sample run failed: ${resp.status}`);
+  return resp.json();
+}
