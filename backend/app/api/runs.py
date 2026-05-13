@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import datetime as dt
 import uuid
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -17,6 +18,8 @@ class Run:
     emitter: EventEmitter
     subscribers: list[asyncio.Queue[dict[str, Any]]] = field(default_factory=list)
     done: bool = False
+    created_at: dt.datetime = field(default_factory=lambda: dt.datetime.now(dt.UTC))
+    completed_at: dt.datetime | None = None
 
 
 class _FanoutEmitter(EventEmitter):
@@ -81,6 +84,7 @@ class RunRegistry:
         run = self._runs.get(run_id)
         if run:
             run.done = True
+            run.completed_at = dt.datetime.now(dt.UTC)
             for q in run.subscribers:
                 q.put_nowait({
                     "kind": "run.complete",

@@ -1,4 +1,5 @@
 import asyncio
+import datetime as dt
 from pathlib import Path
 
 from app.api.runs import RunRegistry
@@ -40,3 +41,21 @@ def test_create_seeded_carries_parent_and_invoice(tmp_path):
     )
     assert run.state.parent_run_id == "parent-id"
     assert run.state.invoice == invoice
+
+
+def test_create_records_created_at(tmp_path):
+    registry = RunRegistry(log_dir=tmp_path)
+    before = dt.datetime.now(dt.UTC)
+    run = registry.create(source_path="/tmp/x.txt", file_format="txt")
+    after = dt.datetime.now(dt.UTC)
+    assert run.created_at is not None
+    assert before <= run.created_at <= after
+    assert run.completed_at is None
+
+
+def test_mark_done_records_completed_at(tmp_path):
+    registry = RunRegistry(log_dir=tmp_path)
+    run = registry.create(source_path="/tmp/x.txt", file_format="txt")
+    registry.mark_done(run.run_id)
+    assert run.completed_at is not None
+    assert run.completed_at >= run.created_at
