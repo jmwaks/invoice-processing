@@ -1,0 +1,60 @@
+INVOICE
+Vendor: Atlas Industrial Supply
+Invoice Number: INV-9005
+Date: 2026-02-12
+Due Date: 2026-04-12
+
+Items:
+  WidgetA    qty: 1    unit price: $250.00
+  WidgetA    qty: 1    unit price: $250.00
+  WidgetA    qty: 1    unit price: $250.00
+  WidgetA    qty: 1    unit price: $250.00
+  WidgetA    qty: 1    unit price: $250.00
+  WidgetA    qty: 1    unit price: $250.00
+  WidgetA    qty: 1    unit price: $250.00
+  WidgetA    qty: 1    unit price: $250.00
+  WidgetA    qty: 1    unit price: $250.00
+  WidgetA    qty: 1    unit price: $250.00
+  WidgetA    qty: 1    unit price: $250.00
+  WidgetA    qty: 1    unit price: $250.00
+  WidgetA    qty: 1    unit price: $250.00
+  WidgetA    qty: 1    unit price: $250.00
+  WidgetA    qty: 1    unit price: $250.00
+  WidgetA    qty: 1    unit price: $250.00
+  WidgetA    qty: 1    unit price: $250.00
+  WidgetA    qty: 1    unit price: $250.00
+  WidgetA    qty: 1    unit price: $250.00
+  WidgetA    qty: 1    unit price: $250.00
+  WidgetA    qty: 1    unit price: $250.00
+  WidgetA    qty: 1    unit price: $250.00
+  WidgetA    qty: 1    unit price: $250.00
+  WidgetA    qty: 1    unit price: $250.00
+  WidgetA    qty: 1    unit price: $250.00
+  WidgetA    qty: 1    unit price: $250.00
+  WidgetA    qty: 1    unit price: $250.00
+  WidgetA    qty: 1    unit price: $250.00
+  WidgetA    qty: 1    unit price: $250.00
+  WidgetA    qty: 1    unit price: $250.00
+  WidgetA    qty: 1    unit price: $250.00
+  WidgetA    qty: 1    unit price: $250.00
+  WidgetA    qty: 1    unit price: $250.00
+  WidgetA    qty: 1    unit price: $250.00
+  WidgetA    qty: 1    unit price: $250.00
+  WidgetA    qty: 1    unit price: $250.00
+  WidgetA    qty: 1    unit price: $250.00
+  WidgetA    qty: 1    unit price: $250.00
+  WidgetA    qty: 1    unit price: $250.00
+  WidgetA    qty: 1    unit price: $250.00
+  WidgetA    qty: 1    unit price: $250.00
+  WidgetA    qty: 1    unit price: $250.00
+  WidgetA    qty: 1    unit price: $250.00
+  WidgetA    qty: 1    unit price: $250.00
+  WidgetA    qty: 1    unit price: $250.00
+  WidgetA    qty: 1    unit price: $250.00
+  WidgetA    qty: 1    unit price: $250.00
+  WidgetA    qty: 1    unit price: $250.00
+  WidgetA    qty: 1    unit price: $250.00
+  WidgetA    qty: 1    unit price: $250.00
+
+Total Amount: $12,500.00
+Payment Terms: Net 60

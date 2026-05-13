@@ -1,0 +1,14 @@
+INVOICE
+
+Vendor: Widgets Inc.
+Invoice Number: INV-1001
+Date: 2026-02-15
+Due Date: 2026-03-01
+
+Items:
+  WidgetA    qty: 5    unit price: $250.00
+
+Total Amount: $1,250.00
+
+Payment Terms: Net 15
+Notes: Submitted again with different amount than original.

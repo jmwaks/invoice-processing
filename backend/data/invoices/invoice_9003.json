@@ -1,0 +1,15 @@
+{
+  "invoice_number": "INV-9003",
+  "vendor": { "name": "Precision Parts Ltd." },
+  "date": "2026-02-10",
+  "due_date": "2026-03-10",
+  "line_items": [
+    {"item": "WidgetA", "quantity": 4, "unit_price": 250.00}
+  ],
+  "subtotal": 1000.00,
+  "tax_rate": 0.05,
+  "tax_amount": 50.00,
+  "total": 1500.00,
+  "currency": "USD",
+  "payment_terms": "Net 30"
+}
