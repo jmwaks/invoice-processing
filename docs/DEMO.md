@@ -66,7 +66,7 @@ Compare with a simple case: drop `invoice_1001.txt`. The rule engine auto-approv
 
 1. From a clean session (refresh the page), click **Run all 16** (the batch button).
 2. Watch the MetricsTile update as runs complete:
-   - **Invoices processed** → 16
+   - **Runs processed** → 16
    - **Auto-approved (%)** → the share that cleared without scrutiny
    - **Avg processing time** → real seconds, with sub-label "vs. ~5 days manual"
    - **Total approved** → dollar value cleared

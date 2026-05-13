@@ -51,7 +51,7 @@ export function MetricsTile({ refreshKey }: Props) {
 
   return (
     <div className="grid grid-cols-2 md:grid-cols-5 gap-3 p-3 bg-white border rounded-lg shadow-sm">
-      <Stat label="Invoices processed" value={String(m.total_runs)} />
+      <Stat label="Runs processed" value={String(m.total_runs)} />
       <Stat
         label="Auto-approved"
         value={`${m.approved_count} (${autoApprovedPct}%)`}

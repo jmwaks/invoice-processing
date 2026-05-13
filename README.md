@@ -16,7 +16,7 @@ The dashboard's top tile is live across every run in the session:
 
 | Metric | What it answers |
 |---|---|
-| Invoices processed | How many runs this session |
+| Runs processed | How many runs this session (includes retries) |
 | Auto-approved (count and %) | What share clears without human review |
 | Avg processing time | Throughput vs. the 5-day manual baseline |
 | Total approved | Dollar value cleared |
