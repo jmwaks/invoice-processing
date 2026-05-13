@@ -121,6 +121,21 @@ def build_router(*, registry: RunRegistry, db_path: Path, graph: Any) -> APIRout
             asyncio.create_task(_one(r.run_id))
         return {"run_ids": [r.run_id for r in runs], "total": len(invoices)}
 
+    @router.post("/runs/sample/{filename}")
+    async def create_run_from_sample(filename: str) -> dict[str, str]:
+        from app.config import get_settings
+        invoices_dir = get_settings().invoice_processing_invoices_dir.resolve()
+        # Reject path traversal: filename must be a single path component.
+        if "/" in filename or "\\" in filename or filename in {".", ".."}:
+            raise HTTPException(400, "invalid filename")
+        target = (invoices_dir / filename).resolve()
+        if not target.is_relative_to(invoices_dir) or not target.is_file():
+            raise HTTPException(404, "sample not found")
+        loaded = load_invoice_file(target)
+        run = registry.create(source_path=str(target), file_format=loaded.format)
+        asyncio.create_task(_run_graph(run.run_id))
+        return {"run_id": run.run_id}
+
     @router.get("/metrics")
     async def metrics() -> dict[str, Any]:
         from app.config import get_settings
