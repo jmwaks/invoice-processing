@@ -26,7 +26,7 @@ def test_load_json(tmp_path: Path):
 
 
 def test_load_pdf_real_sample():
-    p = Path("data/invoices/invoice_1011.pdf")
+    p = Path(__file__).resolve().parents[1] / "data" / "invoices" / "invoice_1011.pdf"
     if not p.exists():
         import pytest; pytest.skip("sample PDF not present")
     result = load_invoice_file(p)

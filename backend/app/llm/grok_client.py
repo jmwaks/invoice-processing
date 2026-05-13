@@ -48,6 +48,7 @@ class GrokClient:
                 model=self.model,
                 messages=messages,
                 response_format={"type": "json_object"},
+                timeout=30.0,
             )
             elapsed_ms = int((perf_counter() - t0) * 1000)
             content = resp.choices[0].message.content or "{}"

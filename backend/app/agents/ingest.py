@@ -1,6 +1,9 @@
 from __future__ import annotations
+import logging
 from pathlib import Path
 from pydantic import BaseModel
+
+_logger = logging.getLogger(__name__)
 from app.graph.state import InvoiceData, InvoiceState, SuspicionSignal
 from app.llm.grok_client import GrokClient
 from app.logging_.event_emitter import EventEmitter
@@ -46,6 +49,7 @@ def run_ingest(state: InvoiceState, *, llm: GrokClient, emitter: EventEmitter) -
         loaded = load_invoice_file(path)
         state.file_format = loaded.format  # type: ignore[assignment]
     except Exception as e:
+        _logger.exception("ingest: file load failed for %s", state.source_path)
         state.error = f"unprocessable: {e}"
         emitter.emit("node.complete", node="ingest", output={"error": state.error})
         return state
@@ -56,6 +60,7 @@ def run_ingest(state: InvoiceState, *, llm: GrokClient, emitter: EventEmitter) -
             system=SYSTEM_PROMPT, user=user, schema=IngestResponse, max_retries=1,
         )
     except Exception as e:
+        _logger.exception("ingest: LLM extraction failed for %s", state.source_path)
         state.error = f"unprocessable: extraction failed ({e})"
         emitter.emit("ingest.retry", node="ingest", reason="pydantic validation exhausted")
         emitter.emit("node.complete", node="ingest", output={"error": state.error})

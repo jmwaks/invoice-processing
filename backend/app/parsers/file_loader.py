@@ -29,8 +29,8 @@ def _load_pdf(path: Path) -> str:
     except Exception:  # noqa: BLE001 — fallback path
         pass
     import fitz  # PyMuPDF
-    doc = fitz.open(path)
-    return "\n".join(page.get_text() for page in doc).strip()
+    with fitz.open(path) as doc:
+        return "\n".join(page.get_text() for page in doc).strip()
 
 
 class EmptyExtractionError(ValueError):
