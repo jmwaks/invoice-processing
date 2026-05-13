@@ -12,3 +12,10 @@ def session_db(tmp_path_factory):
     db = tmp_path_factory.mktemp("dbs") / "session.db"
     init_db(db, seed_path=SEED, reset=True)
     return db
+
+
+@pytest.fixture
+def seeded_db_path(tmp_path):
+    db = tmp_path / "inventory.db"
+    init_db(db, seed_path=SEED)
+    return db
