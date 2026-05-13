@@ -27,7 +27,8 @@ def run_tool_loop(
 ) -> ToolLoopResult:
     """Run a chat completion that may invoke tools, looping until a content reply.
 
-    Raises RuntimeError if max_iterations is exceeded without a final content reply.
+    The default max_iterations=4 allows up to 4 tool-calling rounds before the LLM
+    must produce a content reply. Raises RuntimeError if exceeded.
     """
     messages: list[dict[str, object]] = [
         {"role": "system", "content": system},
