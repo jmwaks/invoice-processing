@@ -46,5 +46,5 @@ def test_dispatch_recompute_totals():
 
 
 def test_dispatch_unknown_tool_raises():
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match="unknown tool"):
         dispatch_tool("nope", {}, db_path=None)

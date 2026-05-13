@@ -77,12 +77,15 @@ def dispatch_tool(
         result = vendor_lookup(str(arguments["name"]), db_path=db_path)
         return result.model_dump()
     if name == "recompute_totals":
-        items = arguments.get("line_items", [])
-        subtotal = sum(
-            float(it["quantity"]) * float(it["unit_price"])  # type: ignore[index]
-            for it in items  # type: ignore[union-attr]
-        )
-        return {"computed_subtotal": round(subtotal, 2), "line_count": len(items)}  # type: ignore[arg-type]
+        items_raw = arguments.get("line_items") or []
+        if not isinstance(items_raw, list):
+            raise ValueError("recompute_totals: line_items must be a list")
+        subtotal = 0.0
+        for it in items_raw:
+            if not isinstance(it, dict):
+                raise ValueError("recompute_totals: each line item must be an object")
+            subtotal += float(it["quantity"]) * float(it["unit_price"])
+        return {"computed_subtotal": round(subtotal, 2), "line_count": len(items_raw)}
     raise ValueError(f"unknown tool: {name}")
 
 

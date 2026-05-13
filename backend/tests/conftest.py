@@ -14,6 +14,8 @@ def session_db(tmp_path_factory):
     return db
 
 
+# Function-scoped seeded DB — isolates write-heavy tests from the
+# shared session_db. Use this in any test that mutates inventory or vendors.
 @pytest.fixture
 def seeded_db_path(tmp_path):
     db = tmp_path / "inventory.db"
