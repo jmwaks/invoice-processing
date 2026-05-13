@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRunStore } from "../store/runStore.ts";
 import { getSource } from "../api/client.ts";
 import type { InvoiceData, LineItem } from "../types/state.ts";
@@ -73,7 +73,11 @@ function LineItemRow({
         type="number"
         value={item.quantity ?? ""}
         placeholder="qty"
-        onChange={(e) => set({ quantity: parseFloat(e.target.value) || 0 })}
+        onChange={(e) => {
+          const v = e.target.value;
+          if (v === "") return; // ignore empty — leave previous value
+          set({ quantity: parseFloat(v) });
+        }}
         className="border rounded px-2 py-0.5 text-xs font-mono w-16"
       />
       <input
@@ -101,6 +105,7 @@ export function SourceAndExtraction() {
   const [source, setSource] = useState<string>("");
   const [isEditing, setIsEditing] = useState(false);
   const [draft, setDraft] = useState<InvoiceData | null>(null);
+  const keysRef = useRef<string[]>([]);
 
   useEffect(() => {
     if (!activeId) return;
@@ -113,6 +118,17 @@ export function SourceAndExtraction() {
     setDraft(inv ? cloneDraft(inv) : null);
     setIsEditing(false);
   }, [inv]);
+
+  // Keep keys array length aligned with draft.line_items
+  useEffect(() => {
+    const needed = draft?.line_items.length ?? 0;
+    while (keysRef.current.length < needed) {
+      keysRef.current.push(crypto.randomUUID());
+    }
+    if (keysRef.current.length > needed) {
+      keysRef.current.length = needed;
+    }
+  }, [draft?.line_items.length]);
 
   if (!run) return null;
 
@@ -285,7 +301,7 @@ export function SourceAndExtraction() {
               <div className="space-y-1">
                 {draft.line_items.map((li, i) => (
                   <LineItemRow
-                    key={i}
+                    key={keysRef.current[i] ?? i}
                     item={li}
                     index={i}
                     onChange={updateLineItem}
