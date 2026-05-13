@@ -38,6 +38,10 @@ select = ["E", "F", "I", "B", "UP"]
 strict = true
 files = ["app"]
 
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["app*"]
+
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
 testpaths = ["tests"]
