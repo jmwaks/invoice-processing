@@ -1,0 +1,370 @@
+{
+  "run_id": "f46b977ba6544699a5251400409f70df",
+  "source_path": "data/invoices/invoice_1004.json",
+  "file_format": "json",
+  "invoice": {
+    "invoice_number": "INV-1004",
+    "vendor": "Precision Parts Ltd.",
+    "date": "2026-01-22",
+    "due_date": "2026-02-22",
+    "line_items": [
+      {
+        "item": "WidgetA",
+        "quantity": 3,
+        "unit_price": 250.0,
+        "notes": ""
+      },
+      {
+        "item": "WidgetB",
+        "quantity": 2,
+        "unit_price": 500.0,
+        "notes": ""
+      }
+    ],
+    "subtotal": 1750.0,
+    "tax_amount": 140.0,
+    "total": 1890.0,
+    "currency": "USD",
+    "payment_terms": "Net 30",
+    "raw_text": "{\n  \"invoice_number\": \"INV-1004\",\n  \"vendor\": {\n    \"name\": \"Precision Parts Ltd.\",\n    \"address\": \"742 Evergreen Terrace, Springfield, IL 62704\"\n  },\n  \"date\": \"2026-01-22\",\n  \"due_date\": \"2026-02-22\",\n  \"line_items\": [\n    {\"item\": \"WidgetA\", \"quantity\": 3, \"unit_price\": 250.00},\n    {\"item\": \"WidgetB\", \"quantity\": 2, \"unit_price\": 500.00}\n  ],\n  \"subtotal\": 1750.00,\n  \"tax_rate\": 0.08,\n  \"tax_amount\": 140.00,\n  \"total\": 1890.00,\n  \"currency\": \"USD\",\n  \"payment_terms\": \"Net 30\"\n}\n"
+  },
+  "suspicion_signals": [],
+  "extraction_confidence": 1.0,
+  "validation": {
+    "issues": [],
+    "inventory_lookups": [
+      {
+        "found": true,
+        "item": "WidgetA",
+        "stock": 15,
+        "unit_price": 250.0
+      },
+      {
+        "found": true,
+        "item": "WidgetB",
+        "stock": 10,
+        "unit_price": 500.0
+      }
+    ],
+    "vendor_lookup": {
+      "found": true,
+      "name": "Precision Parts Ltd.",
+      "status": "approved"
+    }
+  },
+  "decision": {
+    "outcome": "approved",
+    "rationale": "The critique agrees with the initial proposal, and no objections or missed signals were raised. The invoice passes all checks with no issues or suspicion signals reported. The rule engine indicates 'auto_approve' is true, confirming all gates are green for approval.",
+    "rules_applied": [
+      "If auto_approve is true (all gates green), approve and cite 'auto_approve'"
+    ],
+    "initial_proposal": {
+      "outcome": "approved",
+      "rationale": "The invoice passes all checks with no issues or suspicion signals reported. The rule engine indicates 'auto_approve' is true, confirming all gates are green for approval.",
+      "rules_applied": [
+        "If auto_approve is true (all gates green), approve and cite 'auto_approve'"
+      ],
+      "unresolved_concerns": []
+    },
+    "critique": {
+      "agrees": true,
+      "objections": [],
+      "missed_signals": [],
+      "rule_misapplications": []
+    },
+    "final_proposal": {
+      "outcome": "approved",
+      "rationale": "The critique agrees with the initial proposal, and no objections or missed signals were raised. The invoice passes all checks with no issues or suspicion signals reported. The rule engine indicates 'auto_approve' is true, confirming all gates are green for approval.",
+      "rules_applied": [
+        "If auto_approve is true (all gates green), approve and cite 'auto_approve'"
+      ],
+      "unresolved_concerns": []
+    }
+  },
+  "payment_receipt": {
+    "status": "success",
+    "transaction_id": "TXN-INV-1004-f46b977b",
+    "vendor": "Precision Parts Ltd.",
+    "amount": 1890.0,
+    "invoice_number": "INV-1004",
+    "paid_at": "2026-05-13T17:54:39.835676+00:00"
+  },
+  "error": null,
+  "events": [
+    {
+      "kind": "node.start",
+      "ts": "2026-05-13T17:54:27.272828+00:00",
+      "node": "ingest"
+    },
+    {
+      "kind": "llm.call",
+      "ts": "2026-05-13T17:54:34.254033+00:00",
+      "node": "ingest",
+      "tokens_in": 490,
+      "tokens_out": 350,
+      "latency_ms": 6980,
+      "model": "grok-3",
+      "prompt_chars": 525,
+      "response_chars": 0
+    },
+    {
+      "kind": "node.complete",
+      "ts": "2026-05-13T17:54:34.257235+00:00",
+      "node": "ingest",
+      "output": {
+        "vendor": "Precision Parts Ltd.",
+        "total": 1890.0,
+        "confidence": 1.0,
+        "suspicion_count": 0
+      }
+    },
+    {
+      "kind": "ingest.complete",
+      "ts": "2026-05-13T17:54:34.257516+00:00",
+      "vendor": "Precision Parts Ltd.",
+      "total": 1890.0,
+      "confidence": 1.0
+    },
+    {
+      "kind": "node.start",
+      "ts": "2026-05-13T17:54:34.259949+00:00",
+      "node": "validate"
+    },
+    {
+      "kind": "tool.call",
+      "ts": "2026-05-13T17:54:34.262027+00:00",
+      "node": "validate",
+      "tool": "inventory_lookup",
+      "args": {
+        "item": "WidgetA"
+      },
+      "result": {
+        "found": true,
+        "item": "WidgetA",
+        "stock": 15,
+        "unit_price": 250.0
+      }
+    },
+    {
+      "kind": "tool.call",
+      "ts": "2026-05-13T17:54:34.262960+00:00",
+      "node": "validate",
+      "tool": "inventory_lookup",
+      "args": {
+        "item": "WidgetB"
+      },
+      "result": {
+        "found": true,
+        "item": "WidgetB",
+        "stock": 10,
+        "unit_price": 500.0
+      }
+    },
+    {
+      "kind": "tool.call",
+      "ts": "2026-05-13T17:54:34.263855+00:00",
+      "node": "validate",
+      "tool": "vendor_lookup",
+      "args": {
+        "name": "Precision Parts Ltd."
+      },
+      "result": {
+        "found": true,
+        "name": "Precision Parts Ltd.",
+        "status": "approved"
+      }
+    },
+    {
+      "kind": "node.complete",
+      "ts": "2026-05-13T17:54:34.264363+00:00",
+      "node": "validate",
+      "output": {
+        "issue_count": 0,
+        "blocks": [],
+        "warns": []
+      }
+    },
+    {
+      "kind": "node.start",
+      "ts": "2026-05-13T17:54:34.265353+00:00",
+      "node": "approve"
+    },
+    {
+      "kind": "approve.rules_evaluated",
+      "ts": "2026-05-13T17:54:34.269671+00:00",
+      "node": "approve",
+      "evaluation": {
+        "hard_blocks": [],
+        "auto_approve": true,
+        "scrutiny": false,
+        "summary": "clean"
+      }
+    },
+    {
+      "kind": "approve.propose.start",
+      "ts": "2026-05-13T17:54:34.270137+00:00",
+      "node": "approve"
+    },
+    {
+      "kind": "llm.call",
+      "ts": "2026-05-13T17:54:36.706323+00:00",
+      "node": "approve",
+      "sub": "propose",
+      "tokens_in": 762,
+      "tokens_out": 84,
+      "latency_ms": 2436,
+      "model": "grok-3",
+      "prompt_chars": 0,
+      "response_chars": 0
+    },
+    {
+      "kind": "approve.propose.complete",
+      "ts": "2026-05-13T17:54:36.706676+00:00",
+      "node": "approve",
+      "output": {
+        "outcome": "approved",
+        "rationale": "The invoice passes all checks with no issues or suspicion signals reported. The rule engine indicates 'auto_approve' is true, confirming all gates are green for approval.",
+        "rules_applied": [
+          "If auto_approve is true (all gates green), approve and cite 'auto_approve'"
+        ],
+        "unresolved_concerns": []
+      }
+    },
+    {
+      "kind": "approve.critique.start",
+      "ts": "2026-05-13T17:54:36.707392+00:00",
+      "node": "approve"
+    },
+    {
+      "kind": "llm.call",
+      "ts": "2026-05-13T17:54:37.544216+00:00",
+      "node": "approve",
+      "sub": "critique",
+      "tokens_in": 973,
+      "tokens_out": 30,
+      "latency_ms": 836,
+      "model": "grok-3",
+      "prompt_chars": 0,
+      "response_chars": 0
+    },
+    {
+      "kind": "approve.critique.complete",
+      "ts": "2026-05-13T17:54:37.545351+00:00",
+      "node": "approve",
+      "output": {
+        "agrees": true,
+        "objections": [],
+        "missed_signals": [],
+        "rule_misapplications": []
+      }
+    },
+    {
+      "kind": "approve.finalize.start",
+      "ts": "2026-05-13T17:54:37.545605+00:00",
+      "node": "approve"
+    },
+    {
+      "kind": "llm.call",
+      "ts": "2026-05-13T17:54:39.833851+00:00",
+      "node": "approve",
+      "sub": "finalize",
+      "tokens_in": 775,
+      "tokens_out": 104,
+      "latency_ms": 2288,
+      "model": "grok-3",
+      "prompt_chars": 0,
+      "response_chars": 0
+    },
+    {
+      "kind": "approve.finalize.complete",
+      "ts": "2026-05-13T17:54:39.834301+00:00",
+      "node": "approve",
+      "output": {
+        "outcome": "approved",
+        "rationale": "The critique agrees with the initial proposal, and no objections or missed signals were raised. The invoice passes all checks with no issues or suspicion signals reported. The rule engine indicates 'auto_approve' is true, confirming all gates are green for approval.",
+        "rules_applied": [
+          "If auto_approve is true (all gates green), approve and cite 'auto_approve'"
+        ],
+        "unresolved_concerns": []
+      }
+    },
+    {
+      "kind": "approve.decision",
+      "ts": "2026-05-13T17:54:39.834484+00:00",
+      "node": "approve",
+      "output": {
+        "outcome": "approved",
+        "rationale": "The critique agrees with the initial proposal, and no objections or missed signals were raised. The invoice passes all checks with no issues or suspicion signals reported. The rule engine indicates 'auto_approve' is true, confirming all gates are green for approval.",
+        "rules_applied": [
+          "If auto_approve is true (all gates green), approve and cite 'auto_approve'"
+        ],
+        "initial_proposal": {
+          "outcome": "approved",
+          "rationale": "The invoice passes all checks with no issues or suspicion signals reported. The rule engine indicates 'auto_approve' is true, confirming all gates are green for approval.",
+          "rules_applied": [
+            "If auto_approve is true (all gates green), approve and cite 'auto_approve'"
+          ],
+          "unresolved_concerns": []
+        },
+        "critique": {
+          "agrees": true,
+          "objections": [],
+          "missed_signals": [],
+          "rule_misapplications": []
+        },
+        "final_proposal": {
+          "outcome": "approved",
+          "rationale": "The critique agrees with the initial proposal, and no objections or missed signals were raised. The invoice passes all checks with no issues or suspicion signals reported. The rule engine indicates 'auto_approve' is true, confirming all gates are green for approval.",
+          "rules_applied": [
+            "If auto_approve is true (all gates green), approve and cite 'auto_approve'"
+          ],
+          "unresolved_concerns": []
+        }
+      }
+    },
+    {
+      "kind": "node.complete",
+      "ts": "2026-05-13T17:54:39.834662+00:00",
+      "node": "approve",
+      "output": {
+        "outcome": "approved"
+      }
+    },
+    {
+      "kind": "node.start",
+      "ts": "2026-05-13T17:54:39.835562+00:00",
+      "node": "pay"
+    },
+    {
+      "kind": "tool.call",
+      "ts": "2026-05-13T17:54:39.835713+00:00",
+      "node": "pay",
+      "tool": "mock_payment",
+      "args": {
+        "vendor": "Precision Parts Ltd.",
+        "amount": 1890.0
+      },
+      "result": {
+        "status": "success",
+        "transaction_id": "TXN-INV-1004-f46b977b",
+        "vendor": "Precision Parts Ltd.",
+        "amount": 1890.0,
+        "invoice_number": "INV-1004",
+        "paid_at": "2026-05-13T17:54:39.835676+00:00"
+      }
+    },
+    {
+      "kind": "node.complete",
+      "ts": "2026-05-13T17:54:39.835799+00:00",
+      "node": "pay",
+      "output": {
+        "status": "success",
+        "transaction_id": "TXN-INV-1004-f46b977b",
+        "vendor": "Precision Parts Ltd.",
+        "amount": 1890.0,
+        "invoice_number": "INV-1004",
+        "paid_at": "2026-05-13T17:54:39.835676+00:00"
+      }
+    }
+  ]
+}

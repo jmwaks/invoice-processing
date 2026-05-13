@@ -1,0 +1,398 @@
+{
+  "run_id": "d028fe9932804b74a15fc088b33f1414",
+  "source_path": "data/invoices/invoice_1011.txt",
+  "file_format": "txt",
+  "invoice": {
+    "invoice_number": "INV-1011",
+    "vendor": "Summit Manufacturing Co.",
+    "date": "2026-01-20",
+    "due_date": "2026-02-20",
+    "line_items": [
+      {
+        "item": "WidgetA",
+        "quantity": 6,
+        "unit_price": 250.0,
+        "notes": ""
+      },
+      {
+        "item": "WidgetB",
+        "quantity": 3,
+        "unit_price": 500.0,
+        "notes": ""
+      }
+    ],
+    "subtotal": 3000.0,
+    "tax_amount": 0.0,
+    "total": 3000.0,
+    "currency": "",
+    "payment_terms": "Net 30",
+    "raw_text": "INVOICE\n\nInvoice Number: INV-1011\nVendor: Summit Manufacturing Co.\nDate: 2026-01-20\nDue Date: 2026-02-20\n\nItem                Qty     Unit Price      Amount\n--------------------------------------------------\nWidgetA              6       $250.00       $1,500.00\nWidgetB              3       $500.00       $1,500.00\n--------------------------------------------------\n                              Subtotal:    $3,000.00\n                              Tax (0%):       $0.00\n                              Total:       $3,000.00\n\nPayment Terms: Net 30\n"
+  },
+  "suspicion_signals": [
+    {
+      "kind": "impossible_date",
+      "detail": "Invoice date is in the future (2026-01-20)",
+      "severity": "high"
+    },
+    {
+      "kind": "round_number",
+      "detail": "Total amount is a round number ($3,000.00) despite varied line items",
+      "severity": "medium"
+    }
+  ],
+  "extraction_confidence": 0.9,
+  "validation": {
+    "issues": [],
+    "inventory_lookups": [
+      {
+        "found": true,
+        "item": "WidgetA",
+        "stock": 15,
+        "unit_price": 250.0
+      },
+      {
+        "found": true,
+        "item": "WidgetB",
+        "stock": 10,
+        "unit_price": 500.0
+      }
+    ],
+    "vendor_lookup": {
+      "found": true,
+      "name": "Summit Manufacturing Co.",
+      "status": "approved"
+    }
+  },
+  "decision": {
+    "outcome": "needs_review",
+    "rationale": "I stand by the initial decision of 'needs_review' as the critique fully agrees with the assessment and raises no objections or missed signals. The high-severity suspicion signal of an impossible future date (2026-01-20) combined with the medium-severity round number concern ($3,000.00) justifies the need for further investigation to ensure the invoice's validity. No revision is necessary given the alignment with the critique.",
+    "rules_applied": [
+      "If scrutiny is required, weigh the validation warnings and suspicion signals"
+    ],
+    "initial_proposal": {
+      "outcome": "needs_review",
+      "rationale": "While there are no hard_blocks to force rejection, scrutiny is required due to high-severity suspicion signals like an impossible future date (2026-01-20) and a medium-severity round number concern. These issues create genuine ambiguity about the invoice's validity, warranting further investigation rather than outright rejection or approval.",
+      "rules_applied": [
+        "If scrutiny is required, weigh the validation warnings and suspicion signals"
+      ],
+      "unresolved_concerns": [
+        "Invoice date in the future (2026-01-20)",
+        "Round number total ($3,000.00)"
+      ]
+    },
+    "critique": {
+      "agrees": true,
+      "objections": [],
+      "missed_signals": [],
+      "rule_misapplications": []
+    },
+    "final_proposal": {
+      "outcome": "needs_review",
+      "rationale": "I stand by the initial decision of 'needs_review' as the critique fully agrees with the assessment and raises no objections or missed signals. The high-severity suspicion signal of an impossible future date (2026-01-20) combined with the medium-severity round number concern ($3,000.00) justifies the need for further investigation to ensure the invoice's validity. No revision is necessary given the alignment with the critique.",
+      "rules_applied": [
+        "If scrutiny is required, weigh the validation warnings and suspicion signals"
+      ],
+      "unresolved_concerns": [
+        "Invoice date in the future (2026-01-20)",
+        "Round number total ($3,000.00)"
+      ]
+    }
+  },
+  "payment_receipt": null,
+  "error": null,
+  "events": [
+    {
+      "kind": "node.start",
+      "ts": "2026-05-13T17:55:37.244698+00:00",
+      "node": "ingest"
+    },
+    {
+      "kind": "llm.call",
+      "ts": "2026-05-13T17:55:56.642424+00:00",
+      "node": "ingest",
+      "tokens_in": 908,
+      "tokens_out": 421,
+      "latency_ms": 10709,
+      "model": "grok-3",
+      "prompt_chars": 583,
+      "response_chars": 0
+    },
+    {
+      "kind": "node.complete",
+      "ts": "2026-05-13T17:55:56.642853+00:00",
+      "node": "ingest",
+      "output": {
+        "vendor": "Summit Manufacturing Co.",
+        "total": 3000.0,
+        "confidence": 0.9,
+        "suspicion_count": 2
+      }
+    },
+    {
+      "kind": "ingest.complete",
+      "ts": "2026-05-13T17:55:56.643010+00:00",
+      "vendor": "Summit Manufacturing Co.",
+      "total": 3000.0,
+      "confidence": 0.9
+    },
+    {
+      "kind": "node.start",
+      "ts": "2026-05-13T17:55:56.644134+00:00",
+      "node": "validate"
+    },
+    {
+      "kind": "tool.call",
+      "ts": "2026-05-13T17:55:56.645005+00:00",
+      "node": "validate",
+      "tool": "inventory_lookup",
+      "args": {
+        "item": "WidgetA"
+      },
+      "result": {
+        "found": true,
+        "item": "WidgetA",
+        "stock": 15,
+        "unit_price": 250.0
+      }
+    },
+    {
+      "kind": "tool.call",
+      "ts": "2026-05-13T17:55:56.645396+00:00",
+      "node": "validate",
+      "tool": "inventory_lookup",
+      "args": {
+        "item": "WidgetB"
+      },
+      "result": {
+        "found": true,
+        "item": "WidgetB",
+        "stock": 10,
+        "unit_price": 500.0
+      }
+    },
+    {
+      "kind": "tool.call",
+      "ts": "2026-05-13T17:55:56.645686+00:00",
+      "node": "validate",
+      "tool": "vendor_lookup",
+      "args": {
+        "name": "Summit Manufacturing Co."
+      },
+      "result": {
+        "found": true,
+        "name": "Summit Manufacturing Co.",
+        "status": "approved"
+      }
+    },
+    {
+      "kind": "node.complete",
+      "ts": "2026-05-13T17:55:56.645770+00:00",
+      "node": "validate",
+      "output": {
+        "issue_count": 0,
+        "blocks": [],
+        "warns": []
+      }
+    },
+    {
+      "kind": "node.start",
+      "ts": "2026-05-13T17:55:56.646340+00:00",
+      "node": "approve"
+    },
+    {
+      "kind": "approve.rules_evaluated",
+      "ts": "2026-05-13T17:55:56.646485+00:00",
+      "node": "approve",
+      "evaluation": {
+        "hard_blocks": [],
+        "auto_approve": false,
+        "scrutiny": true,
+        "summary": "suspicion_medium+"
+      }
+    },
+    {
+      "kind": "approve.propose.start",
+      "ts": "2026-05-13T17:55:56.646684+00:00",
+      "node": "approve"
+    },
+    {
+      "kind": "llm.call",
+      "ts": "2026-05-13T17:55:59.215660+00:00",
+      "node": "approve",
+      "sub": "propose",
+      "tokens_in": 782,
+      "tokens_out": 134,
+      "latency_ms": 2568,
+      "model": "grok-3",
+      "prompt_chars": 0,
+      "response_chars": 0
+    },
+    {
+      "kind": "approve.propose.complete",
+      "ts": "2026-05-13T17:55:59.216239+00:00",
+      "node": "approve",
+      "output": {
+        "outcome": "needs_review",
+        "rationale": "While there are no hard_blocks to force rejection, scrutiny is required due to high-severity suspicion signals like an impossible future date (2026-01-20) and a medium-severity round number concern. These issues create genuine ambiguity about the invoice's validity, warranting further investigation rather than outright rejection or approval.",
+        "rules_applied": [
+          "If scrutiny is required, weigh the validation warnings and suspicion signals"
+        ],
+        "unresolved_concerns": [
+          "Invoice date in the future (2026-01-20)",
+          "Round number total ($3,000.00)"
+        ]
+      }
+    },
+    {
+      "kind": "approve.critique.start",
+      "ts": "2026-05-13T17:55:59.216819+00:00",
+      "node": "approve"
+    },
+    {
+      "kind": "llm.call",
+      "ts": "2026-05-13T17:56:01.649878+00:00",
+      "node": "approve",
+      "sub": "critique",
+      "tokens_in": 994,
+      "tokens_out": 30,
+      "latency_ms": 2432,
+      "model": "grok-3",
+      "prompt_chars": 0,
+      "response_chars": 0
+    },
+    {
+      "kind": "approve.critique.complete",
+      "ts": "2026-05-13T17:56:01.650453+00:00",
+      "node": "approve",
+      "output": {
+        "agrees": true,
+        "objections": [],
+        "missed_signals": [],
+        "rule_misapplications": []
+      }
+    },
+    {
+      "kind": "approve.finalize.start",
+      "ts": "2026-05-13T17:56:01.651026+00:00",
+      "node": "approve"
+    },
+    {
+      "kind": "llm.call",
+      "ts": "2026-05-13T17:56:06.726048+00:00",
+      "node": "approve",
+      "sub": "finalize",
+      "tokens_in": 850,
+      "tokens_out": 164,
+      "latency_ms": 5074,
+      "model": "grok-3",
+      "prompt_chars": 0,
+      "response_chars": 0
+    },
+    {
+      "kind": "approve.finalize.complete",
+      "ts": "2026-05-13T17:56:06.726599+00:00",
+      "node": "approve",
+      "output": {
+        "outcome": "needs_review",
+        "rationale": "I stand by the initial decision of 'needs_review' as the critique fully agrees with the assessment and raises no objections or missed signals. The high-severity suspicion signal of an impossible future date (2026-01-20) combined with the medium-severity round number concern ($3,000.00) justifies the need for further investigation to ensure the invoice's validity. No revision is necessary given the alignment with the critique.",
+        "rules_applied": [
+          "If scrutiny is required, weigh the validation warnings and suspicion signals"
+        ],
+        "unresolved_concerns": [
+          "Invoice date in the future (2026-01-20)",
+          "Round number total ($3,000.00)"
+        ]
+      }
+    },
+    {
+      "kind": "approve.decision",
+      "ts": "2026-05-13T17:56:06.727242+00:00",
+      "node": "approve",
+      "output": {
+        "outcome": "needs_review",
+        "rationale": "I stand by the initial decision of 'needs_review' as the critique fully agrees with the assessment and raises no objections or missed signals. The high-severity suspicion signal of an impossible future date (2026-01-20) combined with the medium-severity round number concern ($3,000.00) justifies the need for further investigation to ensure the invoice's validity. No revision is necessary given the alignment with the critique.",
+        "rules_applied": [
+          "If scrutiny is required, weigh the validation warnings and suspicion signals"
+        ],
+        "initial_proposal": {
+          "outcome": "needs_review",
+          "rationale": "While there are no hard_blocks to force rejection, scrutiny is required due to high-severity suspicion signals like an impossible future date (2026-01-20) and a medium-severity round number concern. These issues create genuine ambiguity about the invoice's validity, warranting further investigation rather than outright rejection or approval.",
+          "rules_applied": [
+            "If scrutiny is required, weigh the validation warnings and suspicion signals"
+          ],
+          "unresolved_concerns": [
+            "Invoice date in the future (2026-01-20)",
+            "Round number total ($3,000.00)"
+          ]
+        },
+        "critique": {
+          "agrees": true,
+          "objections": [],
+          "missed_signals": [],
+          "rule_misapplications": []
+        },
+        "final_proposal": {
+          "outcome": "needs_review",
+          "rationale": "I stand by the initial decision of 'needs_review' as the critique fully agrees with the assessment and raises no objections or missed signals. The high-severity suspicion signal of an impossible future date (2026-01-20) combined with the medium-severity round number concern ($3,000.00) justifies the need for further investigation to ensure the invoice's validity. No revision is necessary given the alignment with the critique.",
+          "rules_applied": [
+            "If scrutiny is required, weigh the validation warnings and suspicion signals"
+          ],
+          "unresolved_concerns": [
+            "Invoice date in the future (2026-01-20)",
+            "Round number total ($3,000.00)"
+          ]
+        }
+      }
+    },
+    {
+      "kind": "node.complete",
+      "ts": "2026-05-13T17:56:06.727410+00:00",
+      "node": "approve",
+      "output": {
+        "outcome": "needs_review"
+      }
+    },
+    {
+      "kind": "node.start",
+      "ts": "2026-05-13T17:56:06.728577+00:00",
+      "node": "log"
+    },
+    {
+      "kind": "log.rejection_written",
+      "ts": "2026-05-13T17:56:06.728784+00:00",
+      "node": "log",
+      "output": {
+        "run_id": "d028fe9932804b74a15fc088b33f1414",
+        "invoice_number": "INV-1011",
+        "vendor": "Summit Manufacturing Co.",
+        "outcome": "needs_review",
+        "rationale": "I stand by the initial decision of 'needs_review' as the critique fully agrees with the assessment and raises no objections or missed signals. The high-severity suspicion signal of an impossible future date (2026-01-20) combined with the medium-severity round number concern ($3,000.00) justifies the need for further investigation to ensure the invoice's validity. No revision is necessary given the alignment with the critique.",
+        "rules_applied": [
+          "If scrutiny is required, weigh the validation warnings and suspicion signals"
+        ],
+        "validation_issues": [],
+        "suspicion_signals": [
+          {
+            "kind": "impossible_date",
+            "detail": "Invoice date is in the future (2026-01-20)",
+            "severity": "high"
+          },
+          {
+            "kind": "round_number",
+            "detail": "Total amount is a round number ($3,000.00) despite varied line items",
+            "severity": "medium"
+          }
+        ],
+        "rejected_at": "2026-05-13T17:56:06.728776+00:00"
+      }
+    },
+    {
+      "kind": "node.complete",
+      "ts": "2026-05-13T17:56:06.729177+00:00",
+      "node": "log",
+      "output": {
+        "written": true
+      }
+    }
+  ]
+}
