@@ -1,0 +1,20 @@
+hard_blocks:
+  - missing_vendor
+  - missing_total
+  - no_line_items
+  - negative_qty
+  - unknown_item
+  - out_of_stock
+  - qty_exceeds_stock
+
+auto_approve_when:
+  - total_usd_lte: 10000
+  - validation_clean: true
+  - max_suspicion_severity: low
+  - extraction_confidence_gte: 0.8
+
+scrutiny_required_when:
+  - total_usd_gt: 10000
+  - any_warn_issue: true
+  - max_suspicion_severity_gte: medium
+  - extraction_confidence_lt: 0.8
