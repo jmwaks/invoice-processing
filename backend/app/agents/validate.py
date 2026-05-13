@@ -60,15 +60,27 @@ def _check_dates(inv: InvoiceData) -> list[ValidationIssue]:
 def _check_total_math(inv: InvoiceData) -> list[ValidationIssue]:
     if inv.total is None or not inv.line_items:
         return []
+    issues: list[ValidationIssue] = []
     computed = sum((li.quantity or 0) * (li.unit_price or 0.0) for li in inv.line_items)
     stated = inv.subtotal if inv.subtotal is not None else inv.total
     if computed > 0 and stated is not None and abs(computed - stated) > TOTAL_TOLERANCE:
-        return [ValidationIssue(
+        issues.append(ValidationIssue(
             kind="total_math_error",
             detail=f"computed {computed:.2f} vs stated {stated:.2f}",
             severity="warn",
-        )]
-    return []
+        ))
+    if inv.subtotal is not None:
+        expected_total = inv.subtotal + (inv.tax_amount or 0.0)
+        if abs(expected_total - inv.total) > TOTAL_TOLERANCE:
+            issues.append(ValidationIssue(
+                kind="total_math_error",
+                detail=(
+                    f"subtotal {inv.subtotal:.2f} + tax {(inv.tax_amount or 0.0):.2f} "
+                    f"= {expected_total:.2f} vs stated total {inv.total:.2f}"
+                ),
+                severity="warn",
+            ))
+    return issues
 
 
 def _check_line_items_against_inventory(
