@@ -27,9 +27,13 @@ def build_router(*, registry: RunRegistry, db_path: Path, graph: Any) -> APIRout
             return
         loop = asyncio.get_event_loop()
         try:
-            await loop.run_in_executor(None, graph.invoke, run.state)
+            final = await loop.run_in_executor(None, graph.invoke, run.state)
+            # LangGraph returns the final state as a dict; sync it back so
+            # /api/runs summaries reflect the actual outcome instead of "running".
+            run.state = InvoiceState.model_validate(final)
         except Exception as e:
             _logger.exception("graph run failed for %s", run_id)
+            run.state.error = f"graph crashed: {e}"
             run.emitter.emit("run.error", error=str(e))
         finally:
             registry.mark_done(run_id)
