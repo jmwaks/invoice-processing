@@ -38,7 +38,7 @@ ingest → validate → approve → pay   (or → log on reject/needs_review)
 
 - **Ingest** — one Grok call per invoice with Pydantic structured output; retries once on validation failure.
 - **Validate** — deterministic SQL checks against inventory and approved-vendors tables. Eight failure modes.
-- **Approve** — three sequential Grok calls: proposer, adversarial critic, finalizer. A rule engine (`rules.yaml`) provides hard blocks and gate thresholds; the LLM cannot override hard blocks.
+- **Approve** — investigate (tool-using on middle-band cases), then three sequential Grok calls: proposer, adversarial critic, finalizer. During investigate, the LLM may call `lookup_inventory`, `lookup_vendor`, or `recompute_totals` via xAI's function-calling API; results are captured on `Decision.tool_calls` and rendered in the UI. A rule engine (`rules.yaml`) provides hard blocks and gate thresholds; the LLM cannot override hard blocks.
 - **Pay / Log** — mock payment API or structured rejection log.
 
 Full design: [`docs/superpowers/specs/2026-05-13-invoice-processing-design.md`](docs/superpowers/specs/2026-05-13-invoice-processing-design.md).
