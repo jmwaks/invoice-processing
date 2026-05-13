@@ -58,7 +58,7 @@ def build_router(*, registry: RunRegistry, db_path: Path, graph: Any) -> APIRout
     async def retry_run(run_id: str, body: _RetryRequest) -> dict[str, str]:
         parent = registry.get(run_id)
         if parent is None:
-            raise HTTPException(404, "parent run not found")
+            raise HTTPException(404)
         new_run = registry.create_seeded(
             source_path=parent.state.source_path,
             file_format=parent.state.file_format,

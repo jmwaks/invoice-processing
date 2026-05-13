@@ -26,5 +26,18 @@ def test_retry_creates_child_run_with_seeded_invoice(api_client: TestClient, see
 
 
 def test_retry_404_for_unknown_parent(api_client: TestClient):
-    resp = api_client.post("/api/runs/does-not-exist/retry", json={"invoice": {}})
-    assert resp.status_code in (404, 422)
+    valid_invoice = {
+        "invoice_number": "INV-X",
+        "vendor": "V",
+        "date": None,
+        "due_date": None,
+        "line_items": [{"item": "WidgetA", "quantity": 1, "unit_price": 250.0, "notes": None}],
+        "subtotal": 250.0,
+        "tax_amount": 0.0,
+        "total": 250.0,
+        "currency": "USD",
+        "payment_terms": None,
+        "raw_text": "x",
+    }
+    resp = api_client.post("/api/runs/does-not-exist/retry", json={"invoice": valid_invoice})
+    assert resp.status_code == 404
