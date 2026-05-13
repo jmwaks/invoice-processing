@@ -1,0 +1,380 @@
+{
+  "run_id": "a0912c19937b4f87ab3e13170d7a79d8",
+  "source_path": "data/invoices/invoice_9001.txt",
+  "file_format": "txt",
+  "invoice": {
+    "invoice_number": "INV-9OO1",
+    "vendor": "Atlas Industrial Supply",
+    "date": "2026-02-03",
+    "due_date": "2026-03-03",
+    "line_items": [
+      {
+        "item": "Widget A",
+        "quantity": 5,
+        "unit_price": 250.0,
+        "notes": ""
+      }
+    ],
+    "subtotal": 1250.0,
+    "tax_amount": 0.0,
+    "total": 1250.0,
+    "currency": "$",
+    "payment_terms": "Net 30",
+    "raw_text": "INV0ICE\n\nVendor: Atlas Industrial Supply\nInvoice Number: INV-9OO1\nDate: 2026-O2-O3\nDue Date: 2026-03-03\n\nItems:\n  Widget A    qty: 5     unit price: $250\n\nTotal: $1,250\n\nPayment Terms: Net 30\n"
+  },
+  "suspicion_signals": [
+    {
+      "kind": "impossible_date",
+      "detail": "Invoice date is in the future (2026-02-03)",
+      "severity": "high"
+    },
+    {
+      "kind": "round_number",
+      "detail": "Total amount is a suspiciously round number ($1,250) despite specific line item pricing",
+      "severity": "medium"
+    }
+  ],
+  "extraction_confidence": 0.9,
+  "validation": {
+    "issues": [],
+    "inventory_lookups": [
+      {
+        "found": true,
+        "item": "WidgetA",
+        "stock": 15,
+        "unit_price": 250.0
+      }
+    ],
+    "vendor_lookup": {
+      "found": true,
+      "name": "Atlas Industrial Supply",
+      "status": "approved"
+    }
+  },
+  "decision": {
+    "outcome": "needs_review",
+    "rationale": "I stand by the initial decision of 'needs_review' as the critique agrees with the assessment and raises no objections or missed signals. The suspicion signals, including a future invoice date (high severity) and a suspiciously round total (medium severity), justify the need for further investigation to ensure the invoice's validity before approval or rejection.",
+    "rules_applied": [
+      "If the rule engine reports any hard_blocks, the outcome MUST be 'rejected'",
+      "If scrutiny is required, weigh the validation warnings and suspicion signals"
+    ],
+    "initial_proposal": {
+      "outcome": "needs_review",
+      "rationale": "While there are no hard_blocks to force rejection, scrutiny is required due to suspicion signals including a future invoice date (high severity) and a suspiciously round total (medium severity). These issues create genuine ambiguity about the invoice's validity, warranting further investigation rather than outright rejection or approval.",
+      "rules_applied": [
+        "If the rule engine reports any hard_blocks, the outcome MUST be 'rejected'",
+        "If scrutiny is required, weigh the validation warnings and suspicion signals"
+      ],
+      "unresolved_concerns": [
+        "Future invoice date (2026-02-03)",
+        "Suspiciously round total amount ($1,250)"
+      ]
+    },
+    "critique": {
+      "agrees": true,
+      "objections": [],
+      "missed_signals": [],
+      "rule_misapplications": []
+    },
+    "final_proposal": {
+      "outcome": "needs_review",
+      "rationale": "I stand by the initial decision of 'needs_review' as the critique agrees with the assessment and raises no objections or missed signals. The suspicion signals, including a future invoice date (high severity) and a suspiciously round total (medium severity), justify the need for further investigation to ensure the invoice's validity before approval or rejection.",
+      "rules_applied": [
+        "If the rule engine reports any hard_blocks, the outcome MUST be 'rejected'",
+        "If scrutiny is required, weigh the validation warnings and suspicion signals"
+      ],
+      "unresolved_concerns": [
+        "Future invoice date (2026-02-03)",
+        "Suspiciously round total amount ($1,250)"
+      ]
+    }
+  },
+  "payment_receipt": null,
+  "error": null,
+  "events": [
+    {
+      "kind": "node.start",
+      "ts": "2026-05-13T17:56:39.543119+00:00",
+      "node": "ingest"
+    },
+    {
+      "kind": "llm.call",
+      "ts": "2026-05-13T17:56:52.444958+00:00",
+      "node": "ingest",
+      "tokens_in": 555,
+      "tokens_out": 328,
+      "latency_ms": 5070,
+      "model": "grok-3",
+      "prompt_chars": 229,
+      "response_chars": 0
+    },
+    {
+      "kind": "node.complete",
+      "ts": "2026-05-13T17:56:52.445294+00:00",
+      "node": "ingest",
+      "output": {
+        "vendor": "Atlas Industrial Supply",
+        "total": 1250.0,
+        "confidence": 0.9,
+        "suspicion_count": 2
+      }
+    },
+    {
+      "kind": "ingest.complete",
+      "ts": "2026-05-13T17:56:52.446959+00:00",
+      "vendor": "Atlas Industrial Supply",
+      "total": 1250.0,
+      "confidence": 0.9
+    },
+    {
+      "kind": "node.start",
+      "ts": "2026-05-13T17:56:52.447852+00:00",
+      "node": "validate"
+    },
+    {
+      "kind": "tool.call",
+      "ts": "2026-05-13T17:56:52.448677+00:00",
+      "node": "validate",
+      "tool": "inventory_lookup",
+      "args": {
+        "item": "Widget A"
+      },
+      "result": {
+        "found": true,
+        "item": "WidgetA",
+        "stock": 15,
+        "unit_price": 250.0
+      }
+    },
+    {
+      "kind": "tool.call",
+      "ts": "2026-05-13T17:56:52.449033+00:00",
+      "node": "validate",
+      "tool": "vendor_lookup",
+      "args": {
+        "name": "Atlas Industrial Supply"
+      },
+      "result": {
+        "found": true,
+        "name": "Atlas Industrial Supply",
+        "status": "approved"
+      }
+    },
+    {
+      "kind": "node.complete",
+      "ts": "2026-05-13T17:56:52.449120+00:00",
+      "node": "validate",
+      "output": {
+        "issue_count": 0,
+        "blocks": [],
+        "warns": []
+      }
+    },
+    {
+      "kind": "node.start",
+      "ts": "2026-05-13T17:56:52.449535+00:00",
+      "node": "approve"
+    },
+    {
+      "kind": "approve.rules_evaluated",
+      "ts": "2026-05-13T17:56:52.449656+00:00",
+      "node": "approve",
+      "evaluation": {
+        "hard_blocks": [],
+        "auto_approve": false,
+        "scrutiny": true,
+        "summary": "suspicion_medium+"
+      }
+    },
+    {
+      "kind": "approve.propose.start",
+      "ts": "2026-05-13T17:56:52.449827+00:00",
+      "node": "approve"
+    },
+    {
+      "kind": "llm.call",
+      "ts": "2026-05-13T17:56:55.515144+00:00",
+      "node": "approve",
+      "sub": "propose",
+      "tokens_in": 653,
+      "tokens_out": 143,
+      "latency_ms": 3065,
+      "model": "grok-3",
+      "prompt_chars": 0,
+      "response_chars": 0
+    },
+    {
+      "kind": "approve.propose.complete",
+      "ts": "2026-05-13T17:56:55.515718+00:00",
+      "node": "approve",
+      "output": {
+        "outcome": "needs_review",
+        "rationale": "While there are no hard_blocks to force rejection, scrutiny is required due to suspicion signals including a future invoice date (high severity) and a suspiciously round total (medium severity). These issues create genuine ambiguity about the invoice's validity, warranting further investigation rather than outright rejection or approval.",
+        "rules_applied": [
+          "If the rule engine reports any hard_blocks, the outcome MUST be 'rejected'",
+          "If scrutiny is required, weigh the validation warnings and suspicion signals"
+        ],
+        "unresolved_concerns": [
+          "Future invoice date (2026-02-03)",
+          "Suspiciously round total amount ($1,250)"
+        ]
+      }
+    },
+    {
+      "kind": "approve.critique.start",
+      "ts": "2026-05-13T17:56:55.516183+00:00",
+      "node": "approve"
+    },
+    {
+      "kind": "llm.call",
+      "ts": "2026-05-13T17:56:56.434537+00:00",
+      "node": "approve",
+      "sub": "critique",
+      "tokens_in": 818,
+      "tokens_out": 30,
+      "latency_ms": 918,
+      "model": "grok-3",
+      "prompt_chars": 0,
+      "response_chars": 0
+    },
+    {
+      "kind": "approve.critique.complete",
+      "ts": "2026-05-13T17:56:56.435072+00:00",
+      "node": "approve",
+      "output": {
+        "agrees": true,
+        "objections": [],
+        "missed_signals": [],
+        "rule_misapplications": []
+      }
+    },
+    {
+      "kind": "approve.finalize.start",
+      "ts": "2026-05-13T17:56:56.435572+00:00",
+      "node": "approve"
+    },
+    {
+      "kind": "llm.call",
+      "ts": "2026-05-13T17:57:02.066026+00:00",
+      "node": "approve",
+      "sub": "finalize",
+      "tokens_in": 731,
+      "tokens_out": 160,
+      "latency_ms": 5630,
+      "model": "grok-3",
+      "prompt_chars": 0,
+      "response_chars": 0
+    },
+    {
+      "kind": "approve.finalize.complete",
+      "ts": "2026-05-13T17:57:02.066436+00:00",
+      "node": "approve",
+      "output": {
+        "outcome": "needs_review",
+        "rationale": "I stand by the initial decision of 'needs_review' as the critique agrees with the assessment and raises no objections or missed signals. The suspicion signals, including a future invoice date (high severity) and a suspiciously round total (medium severity), justify the need for further investigation to ensure the invoice's validity before approval or rejection.",
+        "rules_applied": [
+          "If the rule engine reports any hard_blocks, the outcome MUST be 'rejected'",
+          "If scrutiny is required, weigh the validation warnings and suspicion signals"
+        ],
+        "unresolved_concerns": [
+          "Future invoice date (2026-02-03)",
+          "Suspiciously round total amount ($1,250)"
+        ]
+      }
+    },
+    {
+      "kind": "approve.decision",
+      "ts": "2026-05-13T17:57:02.067076+00:00",
+      "node": "approve",
+      "output": {
+        "outcome": "needs_review",
+        "rationale": "I stand by the initial decision of 'needs_review' as the critique agrees with the assessment and raises no objections or missed signals. The suspicion signals, including a future invoice date (high severity) and a suspiciously round total (medium severity), justify the need for further investigation to ensure the invoice's validity before approval or rejection.",
+        "rules_applied": [
+          "If the rule engine reports any hard_blocks, the outcome MUST be 'rejected'",
+          "If scrutiny is required, weigh the validation warnings and suspicion signals"
+        ],
+        "initial_proposal": {
+          "outcome": "needs_review",
+          "rationale": "While there are no hard_blocks to force rejection, scrutiny is required due to suspicion signals including a future invoice date (high severity) and a suspiciously round total (medium severity). These issues create genuine ambiguity about the invoice's validity, warranting further investigation rather than outright rejection or approval.",
+          "rules_applied": [
+            "If the rule engine reports any hard_blocks, the outcome MUST be 'rejected'",
+            "If scrutiny is required, weigh the validation warnings and suspicion signals"
+          ],
+          "unresolved_concerns": [
+            "Future invoice date (2026-02-03)",
+            "Suspiciously round total amount ($1,250)"
+          ]
+        },
+        "critique": {
+          "agrees": true,
+          "objections": [],
+          "missed_signals": [],
+          "rule_misapplications": []
+        },
+        "final_proposal": {
+          "outcome": "needs_review",
+          "rationale": "I stand by the initial decision of 'needs_review' as the critique agrees with the assessment and raises no objections or missed signals. The suspicion signals, including a future invoice date (high severity) and a suspiciously round total (medium severity), justify the need for further investigation to ensure the invoice's validity before approval or rejection.",
+          "rules_applied": [
+            "If the rule engine reports any hard_blocks, the outcome MUST be 'rejected'",
+            "If scrutiny is required, weigh the validation warnings and suspicion signals"
+          ],
+          "unresolved_concerns": [
+            "Future invoice date (2026-02-03)",
+            "Suspiciously round total amount ($1,250)"
+          ]
+        }
+      }
+    },
+    {
+      "kind": "node.complete",
+      "ts": "2026-05-13T17:57:02.067177+00:00",
+      "node": "approve",
+      "output": {
+        "outcome": "needs_review"
+      }
+    },
+    {
+      "kind": "node.start",
+      "ts": "2026-05-13T17:57:02.067875+00:00",
+      "node": "log"
+    },
+    {
+      "kind": "log.rejection_written",
+      "ts": "2026-05-13T17:57:02.067993+00:00",
+      "node": "log",
+      "output": {
+        "run_id": "a0912c19937b4f87ab3e13170d7a79d8",
+        "invoice_number": "INV-9OO1",
+        "vendor": "Atlas Industrial Supply",
+        "outcome": "needs_review",
+        "rationale": "I stand by the initial decision of 'needs_review' as the critique agrees with the assessment and raises no objections or missed signals. The suspicion signals, including a future invoice date (high severity) and a suspiciously round total (medium severity), justify the need for further investigation to ensure the invoice's validity before approval or rejection.",
+        "rules_applied": [
+          "If the rule engine reports any hard_blocks, the outcome MUST be 'rejected'",
+          "If scrutiny is required, weigh the validation warnings and suspicion signals"
+        ],
+        "validation_issues": [],
+        "suspicion_signals": [
+          {
+            "kind": "impossible_date",
+            "detail": "Invoice date is in the future (2026-02-03)",
+            "severity": "high"
+          },
+          {
+            "kind": "round_number",
+            "detail": "Total amount is a suspiciously round number ($1,250) despite specific line item pricing",
+            "severity": "medium"
+          }
+        ],
+        "rejected_at": "2026-05-13T17:57:02.067989+00:00"
+      }
+    },
+    {
+      "kind": "node.complete",
+      "ts": "2026-05-13T17:57:02.068182+00:00",
+      "node": "log",
+      "output": {
+        "written": true
+      }
+    }
+  ]
+}

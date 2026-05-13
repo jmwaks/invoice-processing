@@ -1,0 +1,392 @@
+{
+  "run_id": "ed0088e5a0b047628af9d26439355d1f",
+  "source_path": "data/invoices/invoice_1002.txt",
+  "file_format": "txt",
+  "invoice": {
+    "invoice_number": "1002",
+    "vendor": "Gadgets Co.",
+    "date": "2026-01-30",
+    "due_date": "2026-01-30",
+    "line_items": [
+      {
+        "item": "GadgetX",
+        "quantity": 20,
+        "unit_price": 750.0,
+        "notes": ""
+      }
+    ],
+    "subtotal": 15000.0,
+    "tax_amount": 0.0,
+    "total": 15000.0,
+    "currency": "USD",
+    "payment_terms": "Net 30",
+    "raw_text": "INVOCE\n\nVndr: Gadgets Co.\nInv #: 1002\nDt: Jan 30 2026\nDue Dt: 2026-01-30\n\nItms:\n  GadgetX  qty 20   @ $750 ea\n\nAmt: $15,000.00\n\nPymnt Terms: Net 30\n"
+  },
+  "suspicion_signals": [
+    {
+      "kind": "round_number",
+      "detail": "Total amount is a round number ($15,000.00) despite specific unit prices.",
+      "severity": "low"
+    },
+    {
+      "kind": "other",
+      "detail": "Invoice date is in the future (2026-01-30).",
+      "severity": "medium"
+    }
+  ],
+  "extraction_confidence": 0.9,
+  "validation": {
+    "issues": [
+      {
+        "kind": "qty_exceeds_stock",
+        "item": "GadgetX",
+        "detail": "requested 20 > stock 5",
+        "severity": "block"
+      }
+    ],
+    "inventory_lookups": [
+      {
+        "found": true,
+        "item": "GadgetX",
+        "stock": 5,
+        "unit_price": 750.0
+      }
+    ],
+    "vendor_lookup": {
+      "found": true,
+      "name": "Gadgets Co.",
+      "status": "approved"
+    }
+  },
+  "decision": {
+    "outcome": "rejected",
+    "rationale": "Hard-block rules forced rejection: qty_exceeds_stock. Model rationale: I stand by the original decision to reject the invoice due to the hard block identified by the rule engine for 'qty_exceeds_stock', as the requested quantity (20) of GadgetX exceeds available stock (5). This aligns with the rule mandating rejection for any hard blocks. The critique agrees with the decision and raises no objections or missed signals, reinforcing the validity of the rejection. Suspicion signals like the future invoice date and round number total are noted but do not override the hard block.",
+    "rules_applied": [
+      "hard_block:qty_exceeds_stock",
+      "hard_blocks mandate rejection"
+    ],
+    "initial_proposal": {
+      "outcome": "rejected",
+      "rationale": "The invoice is rejected due to a hard block identified by the rule engine for 'qty_exceeds_stock', as the requested quantity (20) of GadgetX exceeds available stock (5). This aligns with the rule mandating rejection for any hard blocks. While suspicion signals like future date and round number are noted, the hard block is the decisive factor.",
+      "rules_applied": [
+        "hard_blocks mandate rejection"
+      ],
+      "unresolved_concerns": [
+        "future invoice date",
+        "round number total"
+      ]
+    },
+    "critique": {
+      "agrees": true,
+      "objections": [],
+      "missed_signals": [],
+      "rule_misapplications": []
+    },
+    "final_proposal": {
+      "outcome": "rejected",
+      "rationale": "I stand by the original decision to reject the invoice due to the hard block identified by the rule engine for 'qty_exceeds_stock', as the requested quantity (20) of GadgetX exceeds available stock (5). This aligns with the rule mandating rejection for any hard blocks. The critique agrees with the decision and raises no objections or missed signals, reinforcing the validity of the rejection. Suspicion signals like the future invoice date and round number total are noted but do not override the hard block.",
+      "rules_applied": [
+        "hard_blocks mandate rejection"
+      ],
+      "unresolved_concerns": [
+        "future invoice date",
+        "round number total"
+      ]
+    }
+  },
+  "payment_receipt": null,
+  "error": null,
+  "events": [
+    {
+      "kind": "node.start",
+      "ts": "2026-05-13T17:54:27.272894+00:00",
+      "node": "ingest"
+    },
+    {
+      "kind": "llm.call",
+      "ts": "2026-05-13T17:54:41.264918+00:00",
+      "node": "ingest",
+      "tokens_in": 558,
+      "tokens_out": 330,
+      "latency_ms": 7182,
+      "model": "grok-3",
+      "prompt_chars": 185,
+      "response_chars": 0
+    },
+    {
+      "kind": "node.complete",
+      "ts": "2026-05-13T17:54:41.265778+00:00",
+      "node": "ingest",
+      "output": {
+        "vendor": "Gadgets Co.",
+        "total": 15000.0,
+        "confidence": 0.9,
+        "suspicion_count": 2
+      }
+    },
+    {
+      "kind": "ingest.complete",
+      "ts": "2026-05-13T17:54:41.265962+00:00",
+      "vendor": "Gadgets Co.",
+      "total": 15000.0,
+      "confidence": 0.9
+    },
+    {
+      "kind": "node.start",
+      "ts": "2026-05-13T17:54:41.267010+00:00",
+      "node": "validate"
+    },
+    {
+      "kind": "tool.call",
+      "ts": "2026-05-13T17:54:41.267947+00:00",
+      "node": "validate",
+      "tool": "inventory_lookup",
+      "args": {
+        "item": "GadgetX"
+      },
+      "result": {
+        "found": true,
+        "item": "GadgetX",
+        "stock": 5,
+        "unit_price": 750.0
+      }
+    },
+    {
+      "kind": "tool.call",
+      "ts": "2026-05-13T17:54:41.268758+00:00",
+      "node": "validate",
+      "tool": "vendor_lookup",
+      "args": {
+        "name": "Gadgets Co."
+      },
+      "result": {
+        "found": true,
+        "name": "Gadgets Co.",
+        "status": "approved"
+      }
+    },
+    {
+      "kind": "node.complete",
+      "ts": "2026-05-13T17:54:41.268947+00:00",
+      "node": "validate",
+      "output": {
+        "issue_count": 1,
+        "blocks": [
+          "qty_exceeds_stock"
+        ],
+        "warns": []
+      }
+    },
+    {
+      "kind": "node.start",
+      "ts": "2026-05-13T17:54:41.269522+00:00",
+      "node": "approve"
+    },
+    {
+      "kind": "approve.rules_evaluated",
+      "ts": "2026-05-13T17:54:41.269696+00:00",
+      "node": "approve",
+      "evaluation": {
+        "hard_blocks": [
+          "qty_exceeds_stock"
+        ],
+        "auto_approve": false,
+        "scrutiny": true,
+        "summary": "hard_blocks=['qty_exceeds_stock']; total>$10000: $15000.00; suspicion_medium+"
+      }
+    },
+    {
+      "kind": "approve.propose.start",
+      "ts": "2026-05-13T17:54:41.269915+00:00",
+      "node": "approve"
+    },
+    {
+      "kind": "llm.call",
+      "ts": "2026-05-13T17:54:45.646466+00:00",
+      "node": "approve",
+      "sub": "propose",
+      "tokens_in": 728,
+      "tokens_out": 116,
+      "latency_ms": 4376,
+      "model": "grok-3",
+      "prompt_chars": 0,
+      "response_chars": 0
+    },
+    {
+      "kind": "approve.propose.complete",
+      "ts": "2026-05-13T17:54:45.647061+00:00",
+      "node": "approve",
+      "output": {
+        "outcome": "rejected",
+        "rationale": "The invoice is rejected due to a hard block identified by the rule engine for 'qty_exceeds_stock', as the requested quantity (20) of GadgetX exceeds available stock (5). This aligns with the rule mandating rejection for any hard blocks. While suspicion signals like future date and round number are noted, the hard block is the decisive factor.",
+        "rules_applied": [
+          "hard_blocks mandate rejection"
+        ],
+        "unresolved_concerns": [
+          "future invoice date",
+          "round number total"
+        ]
+      }
+    },
+    {
+      "kind": "approve.critique.start",
+      "ts": "2026-05-13T17:54:45.647593+00:00",
+      "node": "approve"
+    },
+    {
+      "kind": "llm.call",
+      "ts": "2026-05-13T17:54:47.408404+00:00",
+      "node": "approve",
+      "sub": "critique",
+      "tokens_in": 868,
+      "tokens_out": 30,
+      "latency_ms": 1760,
+      "model": "grok-3",
+      "prompt_chars": 0,
+      "response_chars": 0
+    },
+    {
+      "kind": "approve.critique.complete",
+      "ts": "2026-05-13T17:54:47.408928+00:00",
+      "node": "approve",
+      "output": {
+        "agrees": true,
+        "objections": [],
+        "missed_signals": [],
+        "rule_misapplications": []
+      }
+    },
+    {
+      "kind": "approve.finalize.start",
+      "ts": "2026-05-13T17:54:47.409121+00:00",
+      "node": "approve"
+    },
+    {
+      "kind": "llm.call",
+      "ts": "2026-05-13T17:54:52.324692+00:00",
+      "node": "approve",
+      "sub": "finalize",
+      "tokens_in": 779,
+      "tokens_out": 154,
+      "latency_ms": 4915,
+      "model": "grok-3",
+      "prompt_chars": 0,
+      "response_chars": 0
+    },
+    {
+      "kind": "approve.finalize.complete",
+      "ts": "2026-05-13T17:54:52.325319+00:00",
+      "node": "approve",
+      "output": {
+        "outcome": "rejected",
+        "rationale": "I stand by the original decision to reject the invoice due to the hard block identified by the rule engine for 'qty_exceeds_stock', as the requested quantity (20) of GadgetX exceeds available stock (5). This aligns with the rule mandating rejection for any hard blocks. The critique agrees with the decision and raises no objections or missed signals, reinforcing the validity of the rejection. Suspicion signals like the future invoice date and round number total are noted but do not override the hard block.",
+        "rules_applied": [
+          "hard_blocks mandate rejection"
+        ],
+        "unresolved_concerns": [
+          "future invoice date",
+          "round number total"
+        ]
+      }
+    },
+    {
+      "kind": "approve.decision",
+      "ts": "2026-05-13T17:54:52.325951+00:00",
+      "node": "approve",
+      "output": {
+        "outcome": "rejected",
+        "rationale": "Hard-block rules forced rejection: qty_exceeds_stock. Model rationale: I stand by the original decision to reject the invoice due to the hard block identified by the rule engine for 'qty_exceeds_stock', as the requested quantity (20) of GadgetX exceeds available stock (5). This aligns with the rule mandating rejection for any hard blocks. The critique agrees with the decision and raises no objections or missed signals, reinforcing the validity of the rejection. Suspicion signals like the future invoice date and round number total are noted but do not override the hard block.",
+        "rules_applied": [
+          "hard_block:qty_exceeds_stock",
+          "hard_blocks mandate rejection"
+        ],
+        "initial_proposal": {
+          "outcome": "rejected",
+          "rationale": "The invoice is rejected due to a hard block identified by the rule engine for 'qty_exceeds_stock', as the requested quantity (20) of GadgetX exceeds available stock (5). This aligns with the rule mandating rejection for any hard blocks. While suspicion signals like future date and round number are noted, the hard block is the decisive factor.",
+          "rules_applied": [
+            "hard_blocks mandate rejection"
+          ],
+          "unresolved_concerns": [
+            "future invoice date",
+            "round number total"
+          ]
+        },
+        "critique": {
+          "agrees": true,
+          "objections": [],
+          "missed_signals": [],
+          "rule_misapplications": []
+        },
+        "final_proposal": {
+          "outcome": "rejected",
+          "rationale": "I stand by the original decision to reject the invoice due to the hard block identified by the rule engine for 'qty_exceeds_stock', as the requested quantity (20) of GadgetX exceeds available stock (5). This aligns with the rule mandating rejection for any hard blocks. The critique agrees with the decision and raises no objections or missed signals, reinforcing the validity of the rejection. Suspicion signals like the future invoice date and round number total are noted but do not override the hard block.",
+          "rules_applied": [
+            "hard_blocks mandate rejection"
+          ],
+          "unresolved_concerns": [
+            "future invoice date",
+            "round number total"
+          ]
+        }
+      }
+    },
+    {
+      "kind": "node.complete",
+      "ts": "2026-05-13T17:54:52.326145+00:00",
+      "node": "approve",
+      "output": {
+        "outcome": "rejected"
+      }
+    },
+    {
+      "kind": "node.start",
+      "ts": "2026-05-13T17:54:52.327411+00:00",
+      "node": "log"
+    },
+    {
+      "kind": "log.rejection_written",
+      "ts": "2026-05-13T17:54:52.327651+00:00",
+      "node": "log",
+      "output": {
+        "run_id": "ed0088e5a0b047628af9d26439355d1f",
+        "invoice_number": "1002",
+        "vendor": "Gadgets Co.",
+        "outcome": "rejected",
+        "rationale": "Hard-block rules forced rejection: qty_exceeds_stock. Model rationale: I stand by the original decision to reject the invoice due to the hard block identified by the rule engine for 'qty_exceeds_stock', as the requested quantity (20) of GadgetX exceeds available stock (5). This aligns with the rule mandating rejection for any hard blocks. The critique agrees with the decision and raises no objections or missed signals, reinforcing the validity of the rejection. Suspicion signals like the future invoice date and round number total are noted but do not override the hard block.",
+        "rules_applied": [
+          "hard_block:qty_exceeds_stock",
+          "hard_blocks mandate rejection"
+        ],
+        "validation_issues": [
+          {
+            "kind": "qty_exceeds_stock",
+            "item": "GadgetX",
+            "detail": "requested 20 > stock 5",
+            "severity": "block"
+          }
+        ],
+        "suspicion_signals": [
+          {
+            "kind": "round_number",
+            "detail": "Total amount is a round number ($15,000.00) despite specific unit prices.",
+            "severity": "low"
+          },
+          {
+            "kind": "other",
+            "detail": "Invoice date is in the future (2026-01-30).",
+            "severity": "medium"
+          }
+        ],
+        "rejected_at": "2026-05-13T17:54:52.327643+00:00"
+      }
+    },
+    {
+      "kind": "node.complete",
+      "ts": "2026-05-13T17:54:52.328469+00:00",
+      "node": "log",
+      "output": {
+        "written": true
+      }
+    }
+  ]
+}

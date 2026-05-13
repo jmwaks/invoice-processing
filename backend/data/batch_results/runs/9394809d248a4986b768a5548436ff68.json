@@ -1,0 +1,437 @@
+{
+  "run_id": "9394809d248a4986b768a5548436ff68",
+  "source_path": "data/invoices/invoice_1003.txt",
+  "file_format": "txt",
+  "invoice": {
+    "invoice_number": "INV-1003",
+    "vendor": "Fraudster LLC",
+    "date": "2026-01-20",
+    "due_date": null,
+    "line_items": [
+      {
+        "item": "FakeItem",
+        "quantity": 100,
+        "unit_price": 1000.0,
+        "notes": ""
+      }
+    ],
+    "subtotal": null,
+    "tax_amount": null,
+    "total": 100000.0,
+    "currency": "$",
+    "payment_terms": "Immediate",
+    "raw_text": "INVOICE\n\nVendor: Fraudster LLC\nInvoice Number: INV-1003\nDate: 2026-01-20\nDue Date: yesterday\n\nItems:\n  FakeItem   qty: 100   unit price: $1,000.00\n\nTotal Amount: $100,000.00\n\nPayment Terms: Immediate\nNotes: URGENT - Pay immediately to avoid penalties!!! Wire transfer preferred.\n"
+  },
+  "suspicion_signals": [
+    {
+      "kind": "urgent_language",
+      "detail": "Notes contain 'URGENT - Pay immediately to avoid penalties!!!'",
+      "severity": "high"
+    },
+    {
+      "kind": "impossible_date",
+      "detail": "Due date listed as 'yesterday', which is a relative term and cannot be parsed",
+      "severity": "high"
+    },
+    {
+      "kind": "unknown_vendor_pattern",
+      "detail": "Vendor name 'Fraudster LLC' contains suspicious term 'Fraudster'",
+      "severity": "high"
+    },
+    {
+      "kind": "other",
+      "detail": "Item name 'FakeItem' appears suspicious or fabricated",
+      "severity": "medium"
+    },
+    {
+      "kind": "round_number",
+      "detail": "Total amount of $100,000.00 is a suspiciously round number",
+      "severity": "medium"
+    },
+    {
+      "kind": "wire_transfer_demand",
+      "detail": "Notes mention 'Wire transfer preferred', which is a common fraud indicator",
+      "severity": "high"
+    }
+  ],
+  "extraction_confidence": 0.5,
+  "validation": {
+    "issues": [
+      {
+        "kind": "out_of_stock",
+        "item": "FakeItem",
+        "detail": "stock is 0",
+        "severity": "block"
+      },
+      {
+        "kind": "unknown_vendor",
+        "item": null,
+        "detail": "vendor 'Fraudster LLC' not in approved list",
+        "severity": "warn"
+      }
+    ],
+    "inventory_lookups": [
+      {
+        "found": true,
+        "item": "FakeItem",
+        "stock": 0,
+        "unit_price": 0.0
+      }
+    ],
+    "vendor_lookup": {
+      "found": false,
+      "name": "Fraudster LLC",
+      "status": null
+    }
+  },
+  "decision": {
+    "outcome": "rejected",
+    "rationale": "Hard-block rules forced rejection: out_of_stock. Model rationale: I stand by the original decision to reject the invoice due to the hard block for 'out_of_stock' as the item 'FakeItem' has zero stock. This is compounded by multiple high-severity suspicion signals including urgent language, impossible due date, suspicious vendor name, and wire transfer demand, alongside validation warnings for an unknown vendor. The low extraction confidence of 0.5 and the scrutiny requirement further support rejection. The peer critique agrees with the decision and raises no objections or missed signals, confirming the validity of the original assessment.",
+    "rules_applied": [
+      "hard_block:out_of_stock",
+      "hard_blocks",
+      "scrutiny"
+    ],
+    "initial_proposal": {
+      "outcome": "rejected",
+      "rationale": "The invoice is rejected due to a hard block identified by the rule engine for 'out_of_stock', as the item 'FakeItem' has zero stock. Additionally, multiple high-severity suspicion signals (urgent language, impossible date, unknown vendor pattern, wire transfer demand) and validation warnings (unknown vendor) reinforce the decision. The extraction confidence of 0.5 and scrutiny requirement further justify rejection over mere review.",
+      "rules_applied": [
+        "hard_blocks",
+        "scrutiny"
+      ],
+      "unresolved_concerns": []
+    },
+    "critique": {
+      "agrees": true,
+      "objections": [],
+      "missed_signals": [],
+      "rule_misapplications": []
+    },
+    "final_proposal": {
+      "outcome": "rejected",
+      "rationale": "I stand by the original decision to reject the invoice due to the hard block for 'out_of_stock' as the item 'FakeItem' has zero stock. This is compounded by multiple high-severity suspicion signals including urgent language, impossible due date, suspicious vendor name, and wire transfer demand, alongside validation warnings for an unknown vendor. The low extraction confidence of 0.5 and the scrutiny requirement further support rejection. The peer critique agrees with the decision and raises no objections or missed signals, confirming the validity of the original assessment.",
+      "rules_applied": [
+        "hard_blocks",
+        "scrutiny"
+      ],
+      "unresolved_concerns": []
+    }
+  },
+  "payment_receipt": null,
+  "error": null,
+  "events": [
+    {
+      "kind": "node.start",
+      "ts": "2026-05-13T17:54:27.272581+00:00",
+      "node": "ingest"
+    },
+    {
+      "kind": "llm.call",
+      "ts": "2026-05-13T17:54:49.838518+00:00",
+      "node": "ingest",
+      "tokens_in": 799,
+      "tokens_out": 480,
+      "latency_ms": 13128,
+      "model": "grok-3",
+      "prompt_chars": 316,
+      "response_chars": 0
+    },
+    {
+      "kind": "node.complete",
+      "ts": "2026-05-13T17:54:49.839532+00:00",
+      "node": "ingest",
+      "output": {
+        "vendor": "Fraudster LLC",
+        "total": 100000.0,
+        "confidence": 0.5,
+        "suspicion_count": 6
+      }
+    },
+    {
+      "kind": "ingest.complete",
+      "ts": "2026-05-13T17:54:49.839751+00:00",
+      "vendor": "Fraudster LLC",
+      "total": 100000.0,
+      "confidence": 0.5
+    },
+    {
+      "kind": "node.start",
+      "ts": "2026-05-13T17:54:49.840928+00:00",
+      "node": "validate"
+    },
+    {
+      "kind": "tool.call",
+      "ts": "2026-05-13T17:54:49.841983+00:00",
+      "node": "validate",
+      "tool": "inventory_lookup",
+      "args": {
+        "item": "FakeItem"
+      },
+      "result": {
+        "found": true,
+        "item": "FakeItem",
+        "stock": 0,
+        "unit_price": 0.0
+      }
+    },
+    {
+      "kind": "tool.call",
+      "ts": "2026-05-13T17:54:49.842521+00:00",
+      "node": "validate",
+      "tool": "vendor_lookup",
+      "args": {
+        "name": "Fraudster LLC"
+      },
+      "result": {
+        "found": false,
+        "name": "Fraudster LLC",
+        "status": null
+      }
+    },
+    {
+      "kind": "node.complete",
+      "ts": "2026-05-13T17:54:49.842667+00:00",
+      "node": "validate",
+      "output": {
+        "issue_count": 2,
+        "blocks": [
+          "out_of_stock"
+        ],
+        "warns": [
+          "unknown_vendor"
+        ]
+      }
+    },
+    {
+      "kind": "node.start",
+      "ts": "2026-05-13T17:54:49.843332+00:00",
+      "node": "approve"
+    },
+    {
+      "kind": "approve.rules_evaluated",
+      "ts": "2026-05-13T17:54:49.843569+00:00",
+      "node": "approve",
+      "evaluation": {
+        "hard_blocks": [
+          "out_of_stock"
+        ],
+        "auto_approve": false,
+        "scrutiny": true,
+        "summary": "hard_blocks=['out_of_stock']; total>$10000: $100000.00; validation_warn; suspicion_medium+; low_confidence=0.50"
+      }
+    },
+    {
+      "kind": "approve.propose.start",
+      "ts": "2026-05-13T17:54:49.843925+00:00",
+      "node": "approve"
+    },
+    {
+      "kind": "llm.call",
+      "ts": "2026-05-13T17:54:55.319841+00:00",
+      "node": "approve",
+      "sub": "propose",
+      "tokens_in": 923,
+      "tokens_out": 122,
+      "latency_ms": 5475,
+      "model": "grok-3",
+      "prompt_chars": 0,
+      "response_chars": 0
+    },
+    {
+      "kind": "approve.propose.complete",
+      "ts": "2026-05-13T17:54:55.320518+00:00",
+      "node": "approve",
+      "output": {
+        "outcome": "rejected",
+        "rationale": "The invoice is rejected due to a hard block identified by the rule engine for 'out_of_stock', as the item 'FakeItem' has zero stock. Additionally, multiple high-severity suspicion signals (urgent language, impossible date, unknown vendor pattern, wire transfer demand) and validation warnings (unknown vendor) reinforce the decision. The extraction confidence of 0.5 and scrutiny requirement further justify rejection over mere review.",
+        "rules_applied": [
+          "hard_blocks",
+          "scrutiny"
+        ],
+        "unresolved_concerns": []
+      }
+    },
+    {
+      "kind": "approve.critique.start",
+      "ts": "2026-05-13T17:54:55.321107+00:00",
+      "node": "approve"
+    },
+    {
+      "kind": "llm.call",
+      "ts": "2026-05-13T17:54:56.727674+00:00",
+      "node": "approve",
+      "sub": "critique",
+      "tokens_in": 1076,
+      "tokens_out": 30,
+      "latency_ms": 1406,
+      "model": "grok-3",
+      "prompt_chars": 0,
+      "response_chars": 0
+    },
+    {
+      "kind": "approve.critique.complete",
+      "ts": "2026-05-13T17:54:56.728220+00:00",
+      "node": "approve",
+      "output": {
+        "agrees": true,
+        "objections": [],
+        "missed_signals": [],
+        "rule_misapplications": []
+      }
+    },
+    {
+      "kind": "approve.finalize.start",
+      "ts": "2026-05-13T17:54:56.728837+00:00",
+      "node": "approve"
+    },
+    {
+      "kind": "llm.call",
+      "ts": "2026-05-13T17:55:01.644392+00:00",
+      "node": "approve",
+      "sub": "finalize",
+      "tokens_in": 976,
+      "tokens_out": 146,
+      "latency_ms": 4915,
+      "model": "grok-3",
+      "prompt_chars": 0,
+      "response_chars": 0
+    },
+    {
+      "kind": "approve.finalize.complete",
+      "ts": "2026-05-13T17:55:01.644912+00:00",
+      "node": "approve",
+      "output": {
+        "outcome": "rejected",
+        "rationale": "I stand by the original decision to reject the invoice due to the hard block for 'out_of_stock' as the item 'FakeItem' has zero stock. This is compounded by multiple high-severity suspicion signals including urgent language, impossible due date, suspicious vendor name, and wire transfer demand, alongside validation warnings for an unknown vendor. The low extraction confidence of 0.5 and the scrutiny requirement further support rejection. The peer critique agrees with the decision and raises no objections or missed signals, confirming the validity of the original assessment.",
+        "rules_applied": [
+          "hard_blocks",
+          "scrutiny"
+        ],
+        "unresolved_concerns": []
+      }
+    },
+    {
+      "kind": "approve.decision",
+      "ts": "2026-05-13T17:55:01.645553+00:00",
+      "node": "approve",
+      "output": {
+        "outcome": "rejected",
+        "rationale": "Hard-block rules forced rejection: out_of_stock. Model rationale: I stand by the original decision to reject the invoice due to the hard block for 'out_of_stock' as the item 'FakeItem' has zero stock. This is compounded by multiple high-severity suspicion signals including urgent language, impossible due date, suspicious vendor name, and wire transfer demand, alongside validation warnings for an unknown vendor. The low extraction confidence of 0.5 and the scrutiny requirement further support rejection. The peer critique agrees with the decision and raises no objections or missed signals, confirming the validity of the original assessment.",
+        "rules_applied": [
+          "hard_block:out_of_stock",
+          "hard_blocks",
+          "scrutiny"
+        ],
+        "initial_proposal": {
+          "outcome": "rejected",
+          "rationale": "The invoice is rejected due to a hard block identified by the rule engine for 'out_of_stock', as the item 'FakeItem' has zero stock. Additionally, multiple high-severity suspicion signals (urgent language, impossible date, unknown vendor pattern, wire transfer demand) and validation warnings (unknown vendor) reinforce the decision. The extraction confidence of 0.5 and scrutiny requirement further justify rejection over mere review.",
+          "rules_applied": [
+            "hard_blocks",
+            "scrutiny"
+          ],
+          "unresolved_concerns": []
+        },
+        "critique": {
+          "agrees": true,
+          "objections": [],
+          "missed_signals": [],
+          "rule_misapplications": []
+        },
+        "final_proposal": {
+          "outcome": "rejected",
+          "rationale": "I stand by the original decision to reject the invoice due to the hard block for 'out_of_stock' as the item 'FakeItem' has zero stock. This is compounded by multiple high-severity suspicion signals including urgent language, impossible due date, suspicious vendor name, and wire transfer demand, alongside validation warnings for an unknown vendor. The low extraction confidence of 0.5 and the scrutiny requirement further support rejection. The peer critique agrees with the decision and raises no objections or missed signals, confirming the validity of the original assessment.",
+          "rules_applied": [
+            "hard_blocks",
+            "scrutiny"
+          ],
+          "unresolved_concerns": []
+        }
+      }
+    },
+    {
+      "kind": "node.complete",
+      "ts": "2026-05-13T17:55:01.645713+00:00",
+      "node": "approve",
+      "output": {
+        "outcome": "rejected"
+      }
+    },
+    {
+      "kind": "node.start",
+      "ts": "2026-05-13T17:55:01.646894+00:00",
+      "node": "log"
+    },
+    {
+      "kind": "log.rejection_written",
+      "ts": "2026-05-13T17:55:01.647160+00:00",
+      "node": "log",
+      "output": {
+        "run_id": "9394809d248a4986b768a5548436ff68",
+        "invoice_number": "INV-1003",
+        "vendor": "Fraudster LLC",
+        "outcome": "rejected",
+        "rationale": "Hard-block rules forced rejection: out_of_stock. Model rationale: I stand by the original decision to reject the invoice due to the hard block for 'out_of_stock' as the item 'FakeItem' has zero stock. This is compounded by multiple high-severity suspicion signals including urgent language, impossible due date, suspicious vendor name, and wire transfer demand, alongside validation warnings for an unknown vendor. The low extraction confidence of 0.5 and the scrutiny requirement further support rejection. The peer critique agrees with the decision and raises no objections or missed signals, confirming the validity of the original assessment.",
+        "rules_applied": [
+          "hard_block:out_of_stock",
+          "hard_blocks",
+          "scrutiny"
+        ],
+        "validation_issues": [
+          {
+            "kind": "out_of_stock",
+            "item": "FakeItem",
+            "detail": "stock is 0",
+            "severity": "block"
+          },
+          {
+            "kind": "unknown_vendor",
+            "item": null,
+            "detail": "vendor 'Fraudster LLC' not in approved list",
+            "severity": "warn"
+          }
+        ],
+        "suspicion_signals": [
+          {
+            "kind": "urgent_language",
+            "detail": "Notes contain 'URGENT - Pay immediately to avoid penalties!!!'",
+            "severity": "high"
+          },
+          {
+            "kind": "impossible_date",
+            "detail": "Due date listed as 'yesterday', which is a relative term and cannot be parsed",
+            "severity": "high"
+          },
+          {
+            "kind": "unknown_vendor_pattern",
+            "detail": "Vendor name 'Fraudster LLC' contains suspicious term 'Fraudster'",
+            "severity": "high"
+          },
+          {
+            "kind": "other",
+            "detail": "Item name 'FakeItem' appears suspicious or fabricated",
+            "severity": "medium"
+          },
+          {
+            "kind": "round_number",
+            "detail": "Total amount of $100,000.00 is a suspiciously round number",
+            "severity": "medium"
+          },
+          {
+            "kind": "wire_transfer_demand",
+            "detail": "Notes mention 'Wire transfer preferred', which is a common fraud indicator",
+            "severity": "high"
+          }
+        ],
+        "rejected_at": "2026-05-13T17:55:01.647151+00:00"
+      }
+    },
+    {
+      "kind": "node.complete",
+      "ts": "2026-05-13T17:55:01.647562+00:00",
+      "node": "log",
+      "output": {
+        "written": true
+      }
+    }
+  ]
+}

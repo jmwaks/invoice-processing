@@ -1,0 +1,82 @@
+import type { InvoiceState, InvoiceData } from "../types/state.ts";
+
+export async function uploadInvoice(file: File): Promise<{ run_id: string }> {
+  const fd = new FormData();
+  fd.append("file", file);
+  const resp = await fetch("/api/runs", { method: "POST", body: fd });
+  if (!resp.ok) throw new Error(`upload failed: ${resp.status}`);
+  return resp.json();
+}
+
+export async function getInventory(): Promise<{
+  inventory: { item: string; stock: number; unit_price: number }[];
+  vendors: { name: string; display_name: string; status: string }[];
+}> {
+  const resp = await fetch("/api/inventory");
+  if (!resp.ok) throw new Error("inventory fetch failed");
+  return resp.json();
+}
+
+export async function listRuns(): Promise<Array<{
+  run_id: string;
+  parent_run_id: string | null;
+  source_path: string;
+  invoice_number: string | null;
+  vendor: string | null;
+  total: number | null;
+  outcome: string;
+  error: string | null;
+}>> {
+  const resp = await fetch("/api/runs");
+  if (!resp.ok) throw new Error("list runs failed");
+  return resp.json();
+}
+
+export async function getRun(runId: string): Promise<InvoiceState> {
+  const resp = await fetch(`/api/runs/${runId}`);
+  if (!resp.ok) throw new Error("run fetch failed");
+  return resp.json();
+}
+
+export async function getSource(runId: string): Promise<{ text: string; format: string }> {
+  const resp = await fetch(`/api/runs/${runId}/source`);
+  if (!resp.ok) throw new Error("source fetch failed");
+  return resp.json();
+}
+
+export async function runBatch(): Promise<{ run_ids: string[]; total: number }> {
+  const resp = await fetch("/api/runs/batch", { method: "POST" });
+  if (!resp.ok) throw new Error("batch failed");
+  return resp.json();
+}
+
+export async function retryRun(
+  runId: string,
+  invoice: InvoiceData,
+): Promise<{ run_id: string }> {
+  const resp = await fetch(`/api/runs/${runId}/retry`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ invoice }),
+  });
+  if (!resp.ok) throw new Error(`retry failed: ${resp.status}`);
+  return resp.json();
+}
+
+export type Metrics = {
+  total_runs: number;
+  approved_count: number;
+  rejected_count: number;
+  needs_review_count: number;
+  unprocessable_count: number;
+  total_dollars_approved: number;
+  simulated_dollars_saved: number;
+  avg_run_seconds: number | null;
+  manual_cost_per_invoice_usd: number;
+};
+
+export async function getMetrics(): Promise<Metrics> {
+  const resp = await fetch("/api/metrics");
+  if (!resp.ok) throw new Error(`metrics fetch failed: ${resp.status}`);
+  return resp.json();
+}

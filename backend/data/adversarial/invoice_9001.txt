@@ -1,0 +1,13 @@
+INV0ICE
+
+Vendor: Atlas Industrial Supply
+Invoice Number: INV-9OO1
+Date: 2026-O2-O3
+Due Date: 2026-03-03
+
+Items:
+  Widget A    qty: 5     unit price: $250
+
+Total: $1,250
+
+Payment Terms: Net 30

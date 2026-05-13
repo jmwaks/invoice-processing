@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<invoice>
+  <header>
+    <invoice_number>INV-9004</invoice_number>
+    <vendor>TechParts International</vendor>
+    <date>2026-02-08</date>
+    <due_date>2026-03-08</due_date>
+    <currency>EUR</currency>
+  </header>
+  <line_items>
+    <item><name>WidgetA</name><quantity>4</quantity><unit_price>225.00</unit_price></item>
+  </line_items>
+  <totals><total>900.00</total></totals>
+</invoice>

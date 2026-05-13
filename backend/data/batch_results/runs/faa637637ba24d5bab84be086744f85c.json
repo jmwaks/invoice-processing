@@ -1,0 +1,424 @@
+{
+  "run_id": "faa637637ba24d5bab84be086744f85c",
+  "source_path": "data/invoices/invoice_1004_revised.json",
+  "file_format": "json",
+  "invoice": {
+    "invoice_number": "INV-1004",
+    "vendor": "Precision Parts Ltd.",
+    "date": "2026-01-22",
+    "due_date": "2026-02-22",
+    "line_items": [
+      {
+        "item": "WidgetA",
+        "quantity": 3,
+        "unit_price": 250.0,
+        "notes": ""
+      },
+      {
+        "item": "WidgetB",
+        "quantity": 2,
+        "unit_price": 500.0,
+        "notes": ""
+      },
+      {
+        "item": "GadgetX",
+        "quantity": 5,
+        "unit_price": 750.0,
+        "notes": ""
+      }
+    ],
+    "subtotal": 5500.0,
+    "tax_amount": 440.0,
+    "total": 5940.0,
+    "currency": "USD",
+    "payment_terms": "Net 30",
+    "raw_text": "{\n  \"invoice_number\": \"INV-1004\",\n  \"revision\": \"R1\",\n  \"vendor\": {\n    \"name\": \"Precision Parts Ltd.\",\n    \"address\": \"742 Evergreen Terrace, Springfield, IL 62704\"\n  },\n  \"date\": \"2026-01-22\",\n  \"due_date\": \"2026-02-22\",\n  \"line_items\": [\n    {\"item\": \"WidgetA\", \"quantity\": 3, \"unit_price\": 250.00},\n    {\"item\": \"WidgetB\", \"quantity\": 2, \"unit_price\": 500.00},\n    {\"item\": \"GadgetX\", \"quantity\": 5, \"unit_price\": 750.00}\n  ],\n  \"subtotal\": 5500.00,\n  \"tax_rate\": 0.08,\n  \"tax_amount\": 440.00,\n  \"total\": 5940.00,\n  \"currency\": \"USD\",\n  \"payment_terms\": \"Net 30\",\n  \"notes\": \"Revised invoice - additional items added per PO amendment\"\n}\n"
+  },
+  "suspicion_signals": [],
+  "extraction_confidence": 1.0,
+  "validation": {
+    "issues": [],
+    "inventory_lookups": [
+      {
+        "found": true,
+        "item": "WidgetA",
+        "stock": 15,
+        "unit_price": 250.0
+      },
+      {
+        "found": true,
+        "item": "WidgetB",
+        "stock": 10,
+        "unit_price": 500.0
+      },
+      {
+        "found": true,
+        "item": "GadgetX",
+        "stock": 5,
+        "unit_price": 750.0
+      }
+    ],
+    "vendor_lookup": {
+      "found": true,
+      "name": "Precision Parts Ltd.",
+      "status": "approved"
+    }
+  },
+  "decision": {
+    "outcome": "needs_review",
+    "rationale": "After considering the critique, I acknowledge the validity of the raised concerns regarding the future invoice date (2026-01-22) and the revision note in the raw text about additional items per PO amendment. These are potential red flags that warrant further scrutiny for error or fraud, despite the auto_approve flag being true. A manual review is necessary to verify the date and ensure the revisions align with the original purchase order.",
+    "rules_applied": [
+      "If auto_approve is true (all gates green), approve and cite 'auto_approve'",
+      "Override auto_approve if contextual red flags (e.g., future dates or unverified revisions) suggest potential issues requiring manual review"
+    ],
+    "initial_proposal": {
+      "outcome": "approved",
+      "rationale": "The invoice passes all checks with no hard blocks, issues, or suspicion signals. Auto_approve is true, indicating all gates are green, which supports approval without further scrutiny.",
+      "rules_applied": [
+        "If auto_approve is true (all gates green), approve and cite 'auto_approve'"
+      ],
+      "unresolved_concerns": []
+    },
+    "critique": {
+      "agrees": false,
+      "objections": [
+        "The approver failed to address the future date on the invoice (2026-01-22), which is a potential red flag indicating a possible error or fraud, as it is highly unusual for invoices to be dated in the future.",
+        "The approver did not acknowledge or investigate the note in the raw invoice text stating 'Revised invoice - additional items added per PO amendment,' which could indicate discrepancies or unauthorized changes that require verification against the purchase order."
+      ],
+      "missed_signals": [
+        "Invoice date is in the future (2026-01-22), which should have triggered scrutiny for potential error or fraud.",
+        "Raw invoice text includes a note about revision ('Revised invoice - additional items added per PO amendment'), which was not addressed or verified against the original PO."
+      ],
+      "rule_misapplications": [
+        "The rule 'If auto_approve is true (all gates green), approve and cite auto_approve' was applied without considering contextual red flags such as the future date and revision note, which should have prompted manual review despite the auto_approve flag."
+      ]
+    },
+    "final_proposal": {
+      "outcome": "needs_review",
+      "rationale": "After considering the critique, I acknowledge the validity of the raised concerns regarding the future invoice date (2026-01-22) and the revision note in the raw text about additional items per PO amendment. These are potential red flags that warrant further scrutiny for error or fraud, despite the auto_approve flag being true. A manual review is necessary to verify the date and ensure the revisions align with the original purchase order.",
+      "rules_applied": [
+        "If auto_approve is true (all gates green), approve and cite 'auto_approve'",
+        "Override auto_approve if contextual red flags (e.g., future dates or unverified revisions) suggest potential issues requiring manual review"
+      ],
+      "unresolved_concerns": [
+        "Invoice date is in the future (2026-01-22), which may indicate an error or fraud.",
+        "Revision note ('Revised invoice - additional items added per PO amendment') needs verification against the original purchase order."
+      ]
+    }
+  },
+  "payment_receipt": null,
+  "error": null,
+  "events": [
+    {
+      "kind": "node.start",
+      "ts": "2026-05-13T17:54:39.837502+00:00",
+      "node": "ingest"
+    },
+    {
+      "kind": "llm.call",
+      "ts": "2026-05-13T17:54:51.096017+00:00",
+      "node": "ingest",
+      "tokens_in": 537,
+      "tokens_out": 422,
+      "latency_ms": 11257,
+      "model": "grok-3",
+      "prompt_chars": 679,
+      "response_chars": 0
+    },
+    {
+      "kind": "node.complete",
+      "ts": "2026-05-13T17:54:51.096730+00:00",
+      "node": "ingest",
+      "output": {
+        "vendor": "Precision Parts Ltd.",
+        "total": 5940.0,
+        "confidence": 1.0,
+        "suspicion_count": 0
+      }
+    },
+    {
+      "kind": "ingest.complete",
+      "ts": "2026-05-13T17:54:51.097160+00:00",
+      "vendor": "Precision Parts Ltd.",
+      "total": 5940.0,
+      "confidence": 1.0
+    },
+    {
+      "kind": "node.start",
+      "ts": "2026-05-13T17:54:51.098294+00:00",
+      "node": "validate"
+    },
+    {
+      "kind": "tool.call",
+      "ts": "2026-05-13T17:54:51.099333+00:00",
+      "node": "validate",
+      "tool": "inventory_lookup",
+      "args": {
+        "item": "WidgetA"
+      },
+      "result": {
+        "found": true,
+        "item": "WidgetA",
+        "stock": 15,
+        "unit_price": 250.0
+      }
+    },
+    {
+      "kind": "tool.call",
+      "ts": "2026-05-13T17:54:51.099803+00:00",
+      "node": "validate",
+      "tool": "inventory_lookup",
+      "args": {
+        "item": "WidgetB"
+      },
+      "result": {
+        "found": true,
+        "item": "WidgetB",
+        "stock": 10,
+        "unit_price": 500.0
+      }
+    },
+    {
+      "kind": "tool.call",
+      "ts": "2026-05-13T17:54:51.100151+00:00",
+      "node": "validate",
+      "tool": "inventory_lookup",
+      "args": {
+        "item": "GadgetX"
+      },
+      "result": {
+        "found": true,
+        "item": "GadgetX",
+        "stock": 5,
+        "unit_price": 750.0
+      }
+    },
+    {
+      "kind": "tool.call",
+      "ts": "2026-05-13T17:54:51.100581+00:00",
+      "node": "validate",
+      "tool": "vendor_lookup",
+      "args": {
+        "name": "Precision Parts Ltd."
+      },
+      "result": {
+        "found": true,
+        "name": "Precision Parts Ltd.",
+        "status": "approved"
+      }
+    },
+    {
+      "kind": "node.complete",
+      "ts": "2026-05-13T17:54:51.100705+00:00",
+      "node": "validate",
+      "output": {
+        "issue_count": 0,
+        "blocks": [],
+        "warns": []
+      }
+    },
+    {
+      "kind": "node.start",
+      "ts": "2026-05-13T17:54:51.101325+00:00",
+      "node": "approve"
+    },
+    {
+      "kind": "approve.rules_evaluated",
+      "ts": "2026-05-13T17:54:51.101526+00:00",
+      "node": "approve",
+      "evaluation": {
+        "hard_blocks": [],
+        "auto_approve": true,
+        "scrutiny": false,
+        "summary": "clean"
+      }
+    },
+    {
+      "kind": "approve.propose.start",
+      "ts": "2026-05-13T17:54:51.101817+00:00",
+      "node": "approve"
+    },
+    {
+      "kind": "llm.call",
+      "ts": "2026-05-13T17:54:54.104939+00:00",
+      "node": "approve",
+      "sub": "propose",
+      "tokens_in": 883,
+      "tokens_out": 86,
+      "latency_ms": 3002,
+      "model": "grok-3",
+      "prompt_chars": 0,
+      "response_chars": 0
+    },
+    {
+      "kind": "approve.propose.complete",
+      "ts": "2026-05-13T17:54:54.105533+00:00",
+      "node": "approve",
+      "output": {
+        "outcome": "approved",
+        "rationale": "The invoice passes all checks with no hard blocks, issues, or suspicion signals. Auto_approve is true, indicating all gates are green, which supports approval without further scrutiny.",
+        "rules_applied": [
+          "If auto_approve is true (all gates green), approve and cite 'auto_approve'"
+        ],
+        "unresolved_concerns": []
+      }
+    },
+    {
+      "kind": "approve.critique.start",
+      "ts": "2026-05-13T17:54:54.106114+00:00",
+      "node": "approve"
+    },
+    {
+      "kind": "llm.call",
+      "ts": "2026-05-13T17:55:04.996513+00:00",
+      "node": "approve",
+      "sub": "critique",
+      "tokens_in": 1143,
+      "tokens_out": 240,
+      "latency_ms": 10890,
+      "model": "grok-3",
+      "prompt_chars": 0,
+      "response_chars": 0
+    },
+    {
+      "kind": "approve.critique.complete",
+      "ts": "2026-05-13T17:55:04.996997+00:00",
+      "node": "approve",
+      "output": {
+        "agrees": false,
+        "objections": [
+          "The approver failed to address the future date on the invoice (2026-01-22), which is a potential red flag indicating a possible error or fraud, as it is highly unusual for invoices to be dated in the future.",
+          "The approver did not acknowledge or investigate the note in the raw invoice text stating 'Revised invoice - additional items added per PO amendment,' which could indicate discrepancies or unauthorized changes that require verification against the purchase order."
+        ],
+        "missed_signals": [
+          "Invoice date is in the future (2026-01-22), which should have triggered scrutiny for potential error or fraud.",
+          "Raw invoice text includes a note about revision ('Revised invoice - additional items added per PO amendment'), which was not addressed or verified against the original PO."
+        ],
+        "rule_misapplications": [
+          "The rule 'If auto_approve is true (all gates green), approve and cite auto_approve' was applied without considering contextual red flags such as the future date and revision note, which should have prompted manual review despite the auto_approve flag."
+        ]
+      }
+    },
+    {
+      "kind": "approve.finalize.start",
+      "ts": "2026-05-13T17:55:04.997329+00:00",
+      "node": "approve"
+    },
+    {
+      "kind": "llm.call",
+      "ts": "2026-05-13T17:55:16.790404+00:00",
+      "node": "approve",
+      "sub": "finalize",
+      "tokens_in": 1185,
+      "tokens_out": 216,
+      "latency_ms": 4702,
+      "model": "grok-3",
+      "prompt_chars": 0,
+      "response_chars": 0
+    },
+    {
+      "kind": "approve.finalize.complete",
+      "ts": "2026-05-13T17:55:16.790994+00:00",
+      "node": "approve",
+      "output": {
+        "outcome": "needs_review",
+        "rationale": "After considering the critique, I acknowledge the validity of the raised concerns regarding the future invoice date (2026-01-22) and the revision note in the raw text about additional items per PO amendment. These are potential red flags that warrant further scrutiny for error or fraud, despite the auto_approve flag being true. A manual review is necessary to verify the date and ensure the revisions align with the original purchase order.",
+        "rules_applied": [
+          "If auto_approve is true (all gates green), approve and cite 'auto_approve'",
+          "Override auto_approve if contextual red flags (e.g., future dates or unverified revisions) suggest potential issues requiring manual review"
+        ],
+        "unresolved_concerns": [
+          "Invoice date is in the future (2026-01-22), which may indicate an error or fraud.",
+          "Revision note ('Revised invoice - additional items added per PO amendment') needs verification against the original purchase order."
+        ]
+      }
+    },
+    {
+      "kind": "approve.decision",
+      "ts": "2026-05-13T17:55:16.791217+00:00",
+      "node": "approve",
+      "output": {
+        "outcome": "needs_review",
+        "rationale": "After considering the critique, I acknowledge the validity of the raised concerns regarding the future invoice date (2026-01-22) and the revision note in the raw text about additional items per PO amendment. These are potential red flags that warrant further scrutiny for error or fraud, despite the auto_approve flag being true. A manual review is necessary to verify the date and ensure the revisions align with the original purchase order.",
+        "rules_applied": [
+          "If auto_approve is true (all gates green), approve and cite 'auto_approve'",
+          "Override auto_approve if contextual red flags (e.g., future dates or unverified revisions) suggest potential issues requiring manual review"
+        ],
+        "initial_proposal": {
+          "outcome": "approved",
+          "rationale": "The invoice passes all checks with no hard blocks, issues, or suspicion signals. Auto_approve is true, indicating all gates are green, which supports approval without further scrutiny.",
+          "rules_applied": [
+            "If auto_approve is true (all gates green), approve and cite 'auto_approve'"
+          ],
+          "unresolved_concerns": []
+        },
+        "critique": {
+          "agrees": false,
+          "objections": [
+            "The approver failed to address the future date on the invoice (2026-01-22), which is a potential red flag indicating a possible error or fraud, as it is highly unusual for invoices to be dated in the future.",
+            "The approver did not acknowledge or investigate the note in the raw invoice text stating 'Revised invoice - additional items added per PO amendment,' which could indicate discrepancies or unauthorized changes that require verification against the purchase order."
+          ],
+          "missed_signals": [
+            "Invoice date is in the future (2026-01-22), which should have triggered scrutiny for potential error or fraud.",
+            "Raw invoice text includes a note about revision ('Revised invoice - additional items added per PO amendment'), which was not addressed or verified against the original PO."
+          ],
+          "rule_misapplications": [
+            "The rule 'If auto_approve is true (all gates green), approve and cite auto_approve' was applied without considering contextual red flags such as the future date and revision note, which should have prompted manual review despite the auto_approve flag."
+          ]
+        },
+        "final_proposal": {
+          "outcome": "needs_review",
+          "rationale": "After considering the critique, I acknowledge the validity of the raised concerns regarding the future invoice date (2026-01-22) and the revision note in the raw text about additional items per PO amendment. These are potential red flags that warrant further scrutiny for error or fraud, despite the auto_approve flag being true. A manual review is necessary to verify the date and ensure the revisions align with the original purchase order.",
+          "rules_applied": [
+            "If auto_approve is true (all gates green), approve and cite 'auto_approve'",
+            "Override auto_approve if contextual red flags (e.g., future dates or unverified revisions) suggest potential issues requiring manual review"
+          ],
+          "unresolved_concerns": [
+            "Invoice date is in the future (2026-01-22), which may indicate an error or fraud.",
+            "Revision note ('Revised invoice - additional items added per PO amendment') needs verification against the original purchase order."
+          ]
+        }
+      }
+    },
+    {
+      "kind": "node.complete",
+      "ts": "2026-05-13T17:55:16.791476+00:00",
+      "node": "approve",
+      "output": {
+        "outcome": "needs_review"
+      }
+    },
+    {
+      "kind": "node.start",
+      "ts": "2026-05-13T17:55:16.792870+00:00",
+      "node": "log"
+    },
+    {
+      "kind": "log.rejection_written",
+      "ts": "2026-05-13T17:55:16.793214+00:00",
+      "node": "log",
+      "output": {
+        "run_id": "faa637637ba24d5bab84be086744f85c",
+        "invoice_number": "INV-1004",
+        "vendor": "Precision Parts Ltd.",
+        "outcome": "needs_review",
+        "rationale": "After considering the critique, I acknowledge the validity of the raised concerns regarding the future invoice date (2026-01-22) and the revision note in the raw text about additional items per PO amendment. These are potential red flags that warrant further scrutiny for error or fraud, despite the auto_approve flag being true. A manual review is necessary to verify the date and ensure the revisions align with the original purchase order.",
+        "rules_applied": [
+          "If auto_approve is true (all gates green), approve and cite 'auto_approve'",
+          "Override auto_approve if contextual red flags (e.g., future dates or unverified revisions) suggest potential issues requiring manual review"
+        ],
+        "validation_issues": [],
+        "suspicion_signals": [],
+        "rejected_at": "2026-05-13T17:55:16.793206+00:00"
+      }
+    },
+    {
+      "kind": "node.complete",
+      "ts": "2026-05-13T17:55:16.793569+00:00",
+      "node": "log",
+      "output": {
+        "written": true
+      }
+    }
+  ]
+}
