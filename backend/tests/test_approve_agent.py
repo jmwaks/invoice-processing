@@ -1,6 +1,8 @@
 from pathlib import Path
 from unittest.mock import MagicMock
 
+import pytest
+
 from app.agents.approve import route_after_approve, run_approve
 from app.graph.state import (
     Critique,
@@ -14,6 +16,16 @@ from app.graph.state import (
     ValidationReport,
 )
 from app.logging_.event_emitter import EventEmitter
+
+
+@pytest.fixture(autouse=True)
+def _stub_investigate_by_default(monkeypatch):
+    """By default no test exercises the investigate pass — keep the LLM tool
+    loop out of the way so MagicMock-backed tests don't silently hit the
+    broad exception handler. Tests that need to exercise investigate
+    override this with their own monkeypatch."""
+    from app.agents import approve as approve_mod
+    monkeypatch.setattr(approve_mod, "_run_investigate", lambda **_kw: [])
 
 
 def _state(total=1000.0, issues=None, vendor="Widgets Inc.") -> InvoiceState:
