@@ -5,6 +5,7 @@ from app.graph.state import (
     InvoiceState,
     LineItem,
     Proposal,
+    ToolCall,
     ValidationIssue,
 )
 
@@ -46,3 +47,25 @@ def test_invoice_state_serialises():
     s = InvoiceState(run_id="r1", source_path="x", file_format="txt")
     assert s.invoice is None
     assert s.events == []
+
+
+def test_tool_call_round_trip():
+    tc = ToolCall(
+        tool="lookup_inventory",
+        arguments={"item": "WidgetA"},
+        result={"found": True, "item": "WidgetA", "stock": 15, "unit_price": 250.0},
+        latency_ms=12,
+    )
+    dumped = tc.model_dump()
+    restored = ToolCall.model_validate(dumped)
+    assert restored == tc
+
+
+def test_decision_defaults_tool_calls_to_empty_list():
+    proposal = Proposal(outcome="approved", rationale="r", rules_applied=[], unresolved_concerns=[])
+    critique = Critique(agrees=True, objections=[], missed_signals=[], rule_misapplications=[])
+    decision = Decision(
+        outcome="approved", rationale="r", rules_applied=[],
+        initial_proposal=proposal, critique=critique, final_proposal=proposal,
+    )
+    assert decision.tool_calls == []

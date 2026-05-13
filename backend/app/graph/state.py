@@ -72,6 +72,13 @@ class VendorLookupResult(BaseModel):
     status: Literal["approved", "pending", "blocked"] | None = None
 
 
+class ToolCall(BaseModel):
+    tool: Literal["lookup_inventory", "lookup_vendor", "recompute_totals"]
+    arguments: dict[str, Any]
+    result: dict[str, Any]
+    latency_ms: int
+
+
 class ValidationReport(BaseModel):
     issues: list[ValidationIssue]
     inventory_lookups: list[InventoryLookupResult]
@@ -102,6 +109,7 @@ class Decision(BaseModel):
     initial_proposal: Proposal
     critique: Critique
     final_proposal: Proposal
+    tool_calls: list[ToolCall] = []
 
 
 class InvoiceState(BaseModel):
