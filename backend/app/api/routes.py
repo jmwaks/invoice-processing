@@ -8,14 +8,19 @@ from pathlib import Path
 from typing import Annotated, Any
 
 from fastapi import APIRouter, File, HTTPException, Request, UploadFile
+from pydantic import BaseModel
 from sse_starlette.sse import EventSourceResponse
 
 from app.api.runs import Run, RunRegistry
 from app.api.sse import sse_response
-from app.graph.state import InvoiceState
+from app.graph.state import InvoiceData, InvoiceState
 from app.parsers.file_loader import load_invoice_file
 
 _logger = logging.getLogger(__name__)
+
+
+class _RetryRequest(BaseModel):
+    invoice: InvoiceData
 
 
 def build_router(*, registry: RunRegistry, db_path: Path, graph: Any) -> APIRouter:
@@ -48,6 +53,20 @@ def build_router(*, registry: RunRegistry, db_path: Path, graph: Any) -> APIRout
         run = registry.create(source_path=str(tmp_path), file_format=loaded.format)
         asyncio.create_task(_run_graph(run.run_id))
         return {"run_id": run.run_id}
+
+    @router.post("/runs/{run_id}/retry")
+    async def retry_run(run_id: str, body: _RetryRequest) -> dict[str, str]:
+        parent = registry.get(run_id)
+        if parent is None:
+            raise HTTPException(404, "parent run not found")
+        new_run = registry.create_seeded(
+            source_path=parent.state.source_path,
+            file_format=parent.state.file_format,
+            invoice=body.invoice,
+            parent_run_id=run_id,
+        )
+        asyncio.create_task(_run_graph(new_run.run_id))
+        return {"run_id": new_run.run_id}
 
     @router.get("/runs/{run_id}/events")
     async def stream_events(run_id: str, request: Request) -> EventSourceResponse:
@@ -130,6 +149,7 @@ def _summary(state: InvoiceState) -> dict[str, Any]:
     inv = state.invoice
     return {
         "run_id": state.run_id,
+        "parent_run_id": state.parent_run_id,
         "source_path": state.source_path,
         "invoice_number": inv.invoice_number if inv else None,
         "vendor": inv.vendor if inv else None,
