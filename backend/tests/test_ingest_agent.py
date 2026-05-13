@@ -2,7 +2,7 @@ from pathlib import Path
 from unittest.mock import MagicMock
 
 from app.agents.ingest import run_ingest
-from app.graph.state import InvoiceState
+from app.graph.state import InvoiceData, InvoiceState, LineItem
 from app.logging_.event_emitter import EventEmitter
 
 
@@ -37,3 +37,35 @@ def test_ingest_populates_state_when_llm_returns_valid(tmp_path: Path):
     assert out.invoice.vendor == "Widgets Inc."
     assert out.extraction_confidence == 0.95
     assert any(e["kind"] == "ingest.complete" for e in out.events)
+
+
+def test_ingest_skips_llm_when_invoice_already_seeded(tmp_path: Path):
+    """If state.invoice is already populated, ingest must not call the LLM
+    — this is the seed path used by retry."""
+
+    class _PoisonedLLM:
+        def structured_complete(self, **kwargs):
+            raise AssertionError("LLM must not be called when invoice is pre-seeded")
+
+    src = tmp_path / "src.txt"
+    src.write_text("ignored — not used because invoice is seeded")
+
+    pre_invoice = InvoiceData(
+        invoice_number="INV-X",
+        vendor="Test Vendor",
+        date=None, due_date=None,
+        line_items=[LineItem(item="WidgetA", quantity=1, unit_price=250.0)],
+        subtotal=250.0, tax_amount=0.0, total=250.0,
+        currency="USD", payment_terms=None,
+        raw_text="ignored",
+    )
+    state = InvoiceState(
+        run_id="r1", source_path=str(src), file_format="txt",
+        invoice=pre_invoice, parent_run_id="parent",
+    )
+    emitter = EventEmitter("r1", state.events, tmp_path / "logs")
+
+    out = run_ingest(state, llm=_PoisonedLLM(), emitter=emitter)
+
+    assert out.invoice is pre_invoice
+    assert any(e["kind"] == "ingest.skipped" for e in state.events)

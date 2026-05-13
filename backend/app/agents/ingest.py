@@ -52,6 +52,16 @@ The raw_text field should echo the input text exactly.
 
 def run_ingest(state: InvoiceState, *, llm: GrokClient, emitter: EventEmitter) -> InvoiceState:
     emitter.emit("node.start", node="ingest")
+
+    if state.invoice is not None:
+        emitter.emit("ingest.skipped", node="ingest", reason="invoice pre-seeded (retry path)")
+        emitter.emit("node.complete", node="ingest", output={
+            "vendor": state.invoice.vendor,
+            "total": state.invoice.total,
+            "skipped": True,
+        })
+        return state
+
     path = Path(state.source_path)
 
     try:
