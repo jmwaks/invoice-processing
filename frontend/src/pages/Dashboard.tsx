@@ -1,6 +1,7 @@
 import { UploadZone } from "../components/UploadZone.tsx";
 import { Timeline } from "../components/Timeline.tsx";
 import { SourceAndExtraction } from "../components/SourceAndExtraction.tsx";
+import { CritiquePanel } from "../components/CritiquePanel.tsx";
 
 export default function Dashboard() {
   return (
@@ -11,6 +12,7 @@ export default function Dashboard() {
       <UploadZone />
       <Timeline />
       <SourceAndExtraction />
+      <CritiquePanel />
     </div>
   );
 }
