@@ -1,0 +1,17 @@
+INV-1001: { outcome: approved }
+INV-1002: { outcome: rejected, requires: [qty_exceeds_stock] }
+INV-1003: { outcome: rejected, requires: [out_of_stock] }
+INV-1004: { outcome: approved }
+INV-1004-R1: { outcome: approved }
+INV-1005: { outcome: approved }
+INV-1006: { outcome: approved }
+INV-1007: { outcome: approved }
+INV-1008: { outcome: rejected, requires: [unknown_item] }
+INV-1009: { outcome: rejected, requires_any_of: [missing_vendor, negative_qty] }
+INV-1010: { outcome: approved }
+INV-1011: { outcome: approved }
+INV-1012: { outcome: approved }
+INV-1013: { outcome: approved }
+INV-1014: { outcome: approved }
+INV-1015: { outcome: approved }
+INV-1016: { outcome: rejected, requires: [unknown_item] }
