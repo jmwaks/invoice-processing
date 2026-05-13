@@ -62,3 +62,21 @@ export async function retryRun(
   if (!resp.ok) throw new Error(`retry failed: ${resp.status}`);
   return resp.json();
 }
+
+export type Metrics = {
+  total_runs: number;
+  approved_count: number;
+  rejected_count: number;
+  needs_review_count: number;
+  unprocessable_count: number;
+  total_dollars_approved: number;
+  simulated_dollars_saved: number;
+  avg_run_seconds: number | null;
+  manual_cost_per_invoice_usd: number;
+};
+
+export async function getMetrics(): Promise<Metrics> {
+  const resp = await fetch("/api/metrics");
+  if (!resp.ok) throw new Error(`metrics fetch failed: ${resp.status}`);
+  return resp.json();
+}
