@@ -1,0 +1,19 @@
+inventory:
+  - { item: WidgetA, stock: 15, unit_price: 250.00 }
+  - { item: WidgetB, stock: 10, unit_price: 500.00 }
+  - { item: GadgetX, stock: 5,  unit_price: 750.00 }
+  - { item: FakeItem, stock: 0,  unit_price: 0.00 }
+
+vendors:
+  - "Widgets Inc."
+  - "Gadgets Co."
+  - "Precision Parts Ltd."
+  - "Global Supply Chain Partners"
+  - "Acme Industrial Supplies"
+  - "MegaWidgets Corp"
+  - "Consolidated Materials Group"
+  - "Summit Manufacturing Co."
+  - "QuickShip Distributers"
+  - "Atlas Industrial Supply"
+  - "TechParts International"
+  - "Reliable Components Inc."
