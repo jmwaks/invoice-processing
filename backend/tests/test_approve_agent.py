@@ -9,6 +9,7 @@ from app.graph.state import (
     InvoiceState,
     LineItem,
     Proposal,
+    ToolCall,
     ValidationIssue,
     ValidationReport,
 )
@@ -147,3 +148,53 @@ def test_route_after_approve_needs_review_goes_to_log():
     state = InvoiceState(run_id="r", source_path="x", file_format="txt")
     state.decision = _dec("needs_review")
     assert route_after_approve(state) == "log"
+
+
+# ---------------------------------------------------------------------------
+# Middle-band (scrutiny) helpers
+# ---------------------------------------------------------------------------
+
+def _make_scrutiny_state() -> InvoiceState:
+    """Total > $10k, no hard blocks — triggers the middle band (not auto-approve, not hard-block)."""
+    return _state(total=12000.0)
+
+
+def _run_approve_with_stubbed_llm(state: InvoiceState, tmp_path: Path) -> InvoiceState:
+    """Run approve with a fake LLM that always returns a canned approval."""
+    _ok = Proposal(
+        outcome="approved", rationale="ok", rules_applied=["scrutiny"], unresolved_concerns=[]
+    )
+    _crit = Critique(agrees=True, objections=[], missed_signals=[], rule_misapplications=[])
+    llm = MagicMock()
+    llm.structured_complete.side_effect = [
+        (_ok, _fake_meta()),
+        (_crit, _fake_meta()),
+        (_ok, _fake_meta()),
+    ]
+    emitter = EventEmitter("r", state.events, tmp_path / "logs")
+    return run_approve(state, llm=llm, emitter=emitter)
+
+
+def test_approve_captures_tool_calls_on_decision(monkeypatch, tmp_path):
+    """The approve agent should propagate tool calls from the investigate pass
+    onto Decision.tool_calls so they appear in the audit trail."""
+
+    fake_tool_calls = [
+        ToolCall(
+            tool="lookup_inventory",
+            arguments={"item": "WidgetA"},
+            result={"found": True, "item": "WidgetA", "stock": 15, "unit_price": 250.0},
+            latency_ms=4,
+        ),
+    ]
+
+    def _fake_investigate(*, llm, emitter, context, db_path):
+        return fake_tool_calls
+
+    from app.agents import approve as approve_mod
+    monkeypatch.setattr(approve_mod, "_run_investigate", _fake_investigate)
+
+    state = _run_approve_with_stubbed_llm(_make_scrutiny_state(), tmp_path)
+    assert state.decision is not None
+    assert len(state.decision.tool_calls) == 1
+    assert state.decision.tool_calls[0].tool == "lookup_inventory"

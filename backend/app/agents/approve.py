@@ -2,16 +2,21 @@ from __future__ import annotations
 
 import json
 import logging
+from pathlib import Path
 
+from app.config import get_settings
 from app.graph.state import (
     Critique,
     Decision,
     InvoiceState,
     Proposal,
+    ToolCall,
 )
 from app.llm.grok_client import CallMeta, GrokClient
+from app.llm.tools_loop import run_tool_loop
 from app.logging_.event_emitter import EventEmitter
 from app.rules.engine import RuleEvaluation, evaluate_rules
+from app.tools.llm_tools import TOOL_SCHEMAS, time_dispatch
 
 _logger = logging.getLogger(__name__)
 
@@ -61,6 +66,17 @@ Return JSON: {
   "outcome": "...", "rationale": "...",
   "rules_applied": [...], "unresolved_concerns": [...]
 }
+"""
+
+INVESTIGATE_SYSTEM = """You are an AP investigator preparing a brief for the approver.
+
+You have access to three tools:
+- lookup_inventory(item): verify an item exists and check stock/price.
+- lookup_vendor(name): verify a vendor is on file.
+- recompute_totals(line_items): recompute subtotal from line items to catch arithmetic errors.
+
+Decide which (if any) to call. Call zero tools if validation is already conclusive.
+When done, return JSON: {"notes": "<one-paragraph brief for the approver>"}.
 """
 
 
@@ -143,6 +159,40 @@ def _run_finalize(
     return final_proposal
 
 
+def _run_investigate(
+    *, llm: GrokClient, emitter: EventEmitter, context: str, db_path: Path,
+) -> list[ToolCall]:
+    emitter.emit("approve.investigate.start", node="approve")
+
+    def _dispatch(name: str, args: dict[str, object]) -> dict[str, object]:
+        result, _ = time_dispatch(name, args, db_path=db_path)
+        emitter.emit("tool.call", node="approve", tool=name, arguments=args, result=result)
+        return result
+
+    try:
+        loop_result = run_tool_loop(
+            sdk=llm.sdk, model=llm.model,
+            system=INVESTIGATE_SYSTEM, user=context,
+            tools_schema=TOOL_SCHEMAS, dispatch=_dispatch, max_iterations=4,
+        )
+    except Exception as e:
+        _logger.exception("approve: investigate pass failed")
+        emitter.emit("approve.investigate.complete", node="approve", output={"error": str(e)})
+        return []
+
+    emitter.emit(
+        "approve.investigate.complete", node="approve",
+        output={"tool_call_count": len(loop_result.tool_calls)},
+    )
+    emitter.emit(
+        "llm.call", node="approve", sub="investigate",
+        tokens_in=loop_result.tokens_in, tokens_out=loop_result.tokens_out,
+        latency_ms=loop_result.latency_ms, model=loop_result.model,
+        prompt_chars=len(context), response_chars=len(loop_result.final_content),
+    )
+    return loop_result.tool_calls
+
+
 def run_approve(state: InvoiceState, *, llm: GrokClient, emitter: EventEmitter) -> InvoiceState:
     emitter.emit("node.start", node="approve")
     evaluation = evaluate_rules(state)
@@ -155,6 +205,15 @@ def run_approve(state: InvoiceState, *, llm: GrokClient, emitter: EventEmitter) 
 
     context = _context_block(state, evaluation)
     raw_text = state.invoice.raw_text if state.invoice else None
+    db_path = get_settings().invoice_processing_db_path
+
+    tool_calls: list[ToolCall] = []
+    if not evaluation.auto_approve and not evaluation.hard_blocks:
+        tool_calls = _run_investigate(llm=llm, emitter=emitter, context=context, db_path=db_path)
+        if tool_calls:
+            context = context + "\n\nInvestigation tool results:\n" + json.dumps(
+                [tc.model_dump() for tc in tool_calls], default=str, indent=2,
+            )
 
     proposal, _ = _run_propose(llm, emitter, context)
     critique, forced_review = _run_critique(llm, emitter, context, proposal, raw_text)
@@ -179,6 +238,7 @@ def run_approve(state: InvoiceState, *, llm: GrokClient, emitter: EventEmitter) 
     state.decision = Decision(
         outcome=outcome, rationale=rationale, rules_applied=rules_applied,
         initial_proposal=proposal, critique=critique, final_proposal=final_proposal,
+        tool_calls=tool_calls,
     )
     emitter.emit("approve.decision", node="approve", output=state.decision.model_dump())
     emitter.emit("node.complete", node="approve", output={"outcome": outcome})
