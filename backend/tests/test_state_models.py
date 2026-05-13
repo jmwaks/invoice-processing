@@ -1,7 +1,11 @@
-from datetime import date
 from app.graph.state import (
-    InvoiceData, LineItem, SuspicionSignal, ValidationIssue,
-    ValidationReport, Proposal, Critique, Decision, InvoiceState,
+    Critique,
+    Decision,
+    InvoiceData,
+    InvoiceState,
+    LineItem,
+    Proposal,
+    ValidationIssue,
 )
 
 

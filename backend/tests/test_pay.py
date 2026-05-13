@@ -1,6 +1,7 @@
 from pathlib import Path
-from app.graph.state import InvoiceData, InvoiceState, Decision, Proposal, Critique
+
 from app.agents.pay import run_pay
+from app.graph.state import Critique, Decision, InvoiceData, InvoiceState, Proposal
 from app.logging_.event_emitter import EventEmitter
 
 
@@ -11,7 +12,8 @@ def _state(inv_num="INV-1", total=500.0) -> InvoiceState:
         run_id="r", source_path="x", file_format="txt",
         invoice=InvoiceData(
             invoice_number=inv_num, vendor="Widgets Inc.", date=None, due_date=None,
-            line_items=[], subtotal=total, tax_amount=0.0, total=total, raw_text="", payment_terms=None,
+            line_items=[], subtotal=total, tax_amount=0.0, total=total,
+            raw_text="", payment_terms=None,
         ),
         decision=Decision(outcome="approved", rationale="", rules_applied=[],
                           initial_proposal=p, critique=c, final_proposal=p),

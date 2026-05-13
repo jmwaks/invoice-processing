@@ -1,13 +1,16 @@
 from __future__ import annotations
+
 import logging
 from pathlib import Path
+
 from pydantic import BaseModel
 
-_logger = logging.getLogger(__name__)
 from app.graph.state import InvoiceData, InvoiceState, SuspicionSignal
 from app.llm.grok_client import GrokClient
 from app.logging_.event_emitter import EventEmitter
 from app.parsers.file_loader import load_invoice_file
+
+_logger = logging.getLogger(__name__)
 
 
 class IngestResponse(BaseModel):
@@ -16,12 +19,14 @@ class IngestResponse(BaseModel):
     extraction_confidence: float
 
 
-SYSTEM_PROMPT = """You are an invoice extractor. Convert the provided invoice text into a structured JSON object.
+SYSTEM_PROMPT = """You are an invoice extractor.
+Convert the provided invoice text into a structured JSON object.
 
 Rules:
 - Extract values verbatim from the source. Do not invent values.
 - If a field is missing or unreadable, return null. Do not guess.
-- Dates use YYYY-MM-DD. If the source says "yesterday" or another relative term, return null and note it as a suspicion signal.
+- Dates use YYYY-MM-DD. If the source says "yesterday" or another relative term,
+  return null and note it as a suspicion signal.
 - Quantities are integers; preserve negative values as written.
 - Flag suspicion signals for any of:
   * urgent / threatening language ("URGENT", "pay immediately", "wire transfer")
@@ -33,7 +38,11 @@ Rules:
 
 Return JSON matching this schema exactly:
 {
-  "invoice": { invoice_number, vendor, date, due_date, line_items:[{item, quantity, unit_price, notes}], subtotal, tax_amount, total, currency, payment_terms, raw_text },
+  "invoice": {
+    invoice_number, vendor, date, due_date,
+    line_items:[{item, quantity, unit_price, notes}],
+    subtotal, tax_amount, total, currency, payment_terms, raw_text
+  },
   "suspicion_signals": [{ kind, detail, severity }],
   "extraction_confidence": number
 }
@@ -47,7 +56,7 @@ def run_ingest(state: InvoiceState, *, llm: GrokClient, emitter: EventEmitter) -
 
     try:
         loaded = load_invoice_file(path)
-        state.file_format = loaded.format  # type: ignore[assignment]
+        state.file_format = loaded.format
     except Exception as e:
         _logger.exception("ingest: file load failed for %s", state.source_path)
         state.error = f"unprocessable: {e}"

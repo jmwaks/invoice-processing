@@ -1,10 +1,15 @@
 from __future__ import annotations
+
 import json
 import logging
+
 from app.graph.state import (
-    Critique, Decision, InvoiceState, Proposal,
+    Critique,
+    Decision,
+    InvoiceState,
+    Proposal,
 )
-from app.llm.grok_client import GrokClient
+from app.llm.grok_client import CallMeta, GrokClient
 from app.logging_.event_emitter import EventEmitter
 from app.rules.engine import RuleEvaluation, evaluate_rules
 
@@ -12,16 +17,23 @@ _logger = logging.getLogger(__name__)
 
 PROPOSE_SYSTEM = """You are an accounts payable approver at Acme Corp.
 
-Given the invoice data, validation report, suspicion signals, extraction confidence, and rule-engine evaluation, decide: approved | rejected | needs_review.
+Given the invoice data, validation report, suspicion signals, extraction confidence,
+and rule-engine evaluation, decide: approved | rejected | needs_review.
 
 Rules to apply (verbatim):
-- If the rule engine reports any hard_blocks, the outcome MUST be 'rejected' — explain which blocks and why.
+- If the rule engine reports any hard_blocks, the outcome MUST be 'rejected'
+  — explain which blocks and why.
 - If auto_approve is true (all gates green), approve and cite "auto_approve".
-- If scrutiny is required, weigh the validation warnings and suspicion signals; rejected only for clear cause, needs_review for genuine ambiguity, approved only with explicit reasoning.
+- If scrutiny is required, weigh the validation warnings and suspicion signals;
+  rejected only for clear cause, needs_review for genuine ambiguity,
+  approved only with explicit reasoning.
 
 Cite every rule you apply by name. Be concise — 2-4 sentences of rationale max.
 
-Return JSON: { "outcome": "...", "rationale": "...", "rules_applied": [...], "unresolved_concerns": [...] }
+Return JSON: {
+  "outcome": "...", "rationale": "...",
+  "rules_applied": [...], "unresolved_concerns": [...]
+}
 """
 
 CRITIQUE_SYSTEM = """You are an adversarial reviewer of an AP approver's decision.
@@ -35,18 +47,24 @@ Look for:
 
 If you agree, say so plainly — do not manufacture objections.
 
-Return JSON: { "agrees": bool, "objections": [...], "missed_signals": [...], "rule_misapplications": [...] }
+Return JSON: {
+  "agrees": bool, "objections": [...],
+  "missed_signals": [...], "rule_misapplications": [...]
+}
 """
 
 FINALIZE_SYSTEM = """You are the AP approver finalizing your decision after a peer critique.
 
 If the critique raises valid points, revise. If not, explain why you stand by the original.
 
-Return JSON: { "outcome": "...", "rationale": "...", "rules_applied": [...], "unresolved_concerns": [...] }
+Return JSON: {
+  "outcome": "...", "rationale": "...",
+  "rules_applied": [...], "unresolved_concerns": [...]
+}
 """
 
 
-def _emit_llm(emitter: EventEmitter, sub: str, meta) -> None:
+def _emit_llm(emitter: EventEmitter, sub: str, meta: CallMeta) -> None:
     emitter.emit(
         "llm.call", node="approve",
         sub=sub, tokens_in=meta.tokens_in, tokens_out=meta.tokens_out,

@@ -1,7 +1,8 @@
 from pathlib import Path
+
+from app.agents.validate import run_validate
 from app.db.init_db import init_db
 from app.graph.state import InvoiceData, InvoiceState, LineItem
-from app.agents.validate import run_validate
 from app.logging_.event_emitter import EventEmitter
 
 SEED = Path(__file__).resolve().parents[1] / "app" / "db" / "seed.yaml"

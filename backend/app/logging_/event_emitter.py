@@ -1,8 +1,9 @@
 from __future__ import annotations
+
 import asyncio
 import json
 import logging
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -13,9 +14,9 @@ class EventEmitter:
     def __init__(
         self,
         run_id: str,
-        state_events: list[dict],
+        state_events: list[dict[str, Any]],
         log_dir: Path,
-        queue: asyncio.Queue | None = None,
+        queue: asyncio.Queue[dict[str, Any]] | None = None,
     ) -> None:
         self.run_id = run_id
         self.state_events = state_events
@@ -24,10 +25,10 @@ class EventEmitter:
         self.log_path = self.log_dir / f"{run_id}.jsonl"
         self.queue = queue
 
-    def emit(self, kind: str, **payload: Any) -> dict:
+    def emit(self, kind: str, **payload: Any) -> dict[str, Any]:
         event: dict[str, Any] = {
             "kind": kind,
-            "ts": datetime.now(timezone.utc).isoformat(),
+            "ts": datetime.now(UTC).isoformat(),
             **payload,
         }
         self.state_events.append(event)

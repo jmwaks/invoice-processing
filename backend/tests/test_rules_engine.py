@@ -1,7 +1,11 @@
 from app.graph.state import (
-    InvoiceState, InvoiceData, ValidationReport, ValidationIssue, SuspicionSignal
+    InvoiceData,
+    InvoiceState,
+    SuspicionSignal,
+    ValidationIssue,
+    ValidationReport,
 )
-from app.rules.engine import evaluate_rules, RuleEvaluation
+from app.rules.engine import evaluate_rules
 
 
 def _state(total=1000.0, issues=None, signals=None, confidence=0.95) -> InvoiceState:
@@ -31,7 +35,9 @@ def test_scrutiny_above_10k():
 
 
 def test_hard_block_qty_exceeds_stock():
-    issue = ValidationIssue(kind="qty_exceeds_stock", item="GadgetX", detail="20>5", severity="block")
+    issue = ValidationIssue(
+        kind="qty_exceeds_stock", item="GadgetX", detail="20>5", severity="block"
+    )
     r = evaluate_rules(_state(issues=[issue]))
     assert "qty_exceeds_stock" in r.hard_blocks
     assert r.auto_approve is False

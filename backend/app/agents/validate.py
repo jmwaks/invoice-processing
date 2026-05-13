@@ -1,9 +1,11 @@
 from __future__ import annotations
+
 from pathlib import Path
+
 from app.graph.state import (
+    InventoryLookupResult,
     InvoiceData,
     InvoiceState,
-    InventoryLookupResult,
     ValidationIssue,
     ValidationReport,
     VendorLookupResult,
@@ -19,11 +21,19 @@ TOTAL_TOLERANCE = 1.00  # $1
 def _check_required_fields(inv: InvoiceData) -> list[ValidationIssue]:
     issues: list[ValidationIssue] = []
     if not inv.vendor or not inv.vendor.strip():
-        issues.append(ValidationIssue(kind="missing_vendor", detail="vendor field empty/null", severity="block"))
+        issues.append(
+            ValidationIssue(
+                kind="missing_vendor", detail="vendor field empty/null", severity="block"
+            )
+        )
     if inv.total is None:
-        issues.append(ValidationIssue(kind="missing_total", detail="total field missing", severity="block"))
+        issues.append(
+            ValidationIssue(kind="missing_total", detail="total field missing", severity="block")
+        )
     if not inv.line_items:
-        issues.append(ValidationIssue(kind="no_line_items", detail="no line items", severity="block"))
+        issues.append(
+            ValidationIssue(kind="no_line_items", detail="no line items", severity="block")
+        )
     return issues
 
 
@@ -85,7 +95,7 @@ def _check_line_items_against_inventory(
                 detail="stock is 0", severity="block",
             ))
             continue
-        if li.quantity > lookup.stock:
+        if lookup.stock is not None and li.quantity > lookup.stock:
             issues.append(ValidationIssue(
                 kind="qty_exceeds_stock", item=li.item,
                 detail=f"requested {li.quantity} > stock {lookup.stock}", severity="block",

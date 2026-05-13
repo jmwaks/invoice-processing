@@ -1,4 +1,5 @@
 from __future__ import annotations
+
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Literal
@@ -28,7 +29,7 @@ def _load_pdf(path: Path) -> str:
                 return text
     except Exception:  # noqa: BLE001 — fallback path
         pass
-    import fitz  # PyMuPDF
+    import fitz  # type: ignore[import-untyped]  # PyMuPDF
     with fitz.open(path) as doc:
         return "\n".join(page.get_text() for page in doc).strip()
 

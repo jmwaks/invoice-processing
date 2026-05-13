@@ -1,11 +1,14 @@
 from __future__ import annotations
+
 import argparse
 import json
 from pathlib import Path
+from typing import Any
+
 from app.config import get_settings
 
 
-def replay_trace(run_id: str, *, log_dir: Path) -> dict:
+def replay_trace(run_id: str, *, log_dir: Path) -> dict[str, Any]:
     path = log_dir / f"{run_id}.jsonl"
     if not path.exists():
         raise FileNotFoundError(f"No trace at {path}")

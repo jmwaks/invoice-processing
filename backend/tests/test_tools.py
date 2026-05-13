@@ -1,5 +1,5 @@
-import sqlite3
 from pathlib import Path
+
 from app.db.init_db import init_db
 from app.tools.inventory_tool import inventory_lookup
 from app.tools.vendor_tool import vendor_lookup

@@ -1,9 +1,11 @@
 from pathlib import Path
 from unittest.mock import MagicMock
-from app.db.init_db import init_db
-from app.graph.state import InvoiceState, Proposal, Critique, InvoiceData, LineItem
-from app.graph.builder import build_graph
+
 from app.agents.ingest import IngestResponse
+from app.db.init_db import init_db
+from app.graph.builder import build_graph
+from app.graph.state import Critique, InvoiceData, InvoiceState, LineItem, Proposal
+
 BACKEND_DIR = Path(__file__).resolve().parents[1]
 SEED = BACKEND_DIR / "app" / "db" / "seed.yaml"
 INVOICE_1001 = BACKEND_DIR / "data" / "invoices" / "invoice_1001.txt"
@@ -25,7 +27,10 @@ def test_graph_compiles_and_runs_approved_path(tmp_path: Path):
     )
     meta = MagicMock(tokens_in=10, tokens_out=10, latency_ms=10, model="grok-4")
 
-    proposal = Proposal(outcome="approved", rationale="ok", rules_applied=["auto_approve"], unresolved_concerns=[])
+    proposal = Proposal(
+        outcome="approved", rationale="ok",
+        rules_applied=["auto_approve"], unresolved_concerns=[],
+    )
     critique = Critique(agrees=True, objections=[], missed_signals=[], rule_misapplications=[])
     llm = MagicMock()
     llm.structured_complete.side_effect = [

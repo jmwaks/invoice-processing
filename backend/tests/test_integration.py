@@ -1,11 +1,13 @@
 from pathlib import Path
+
 import pytest
 import yaml
+
 from app.db.init_db import init_db
 from app.graph.builder import build_graph
 from app.graph.state import InvoiceState
 from app.parsers.file_loader import load_invoice_file
-from tests.fixture_helpers import MockGrokClient, FIXTURES_DIR
+from tests.fixture_helpers import FIXTURES_DIR, MockGrokClient
 
 BACKEND_DIR = Path(__file__).resolve().parents[1]
 SEED = BACKEND_DIR / "app" / "db" / "seed.yaml"
@@ -66,7 +68,9 @@ def test_invoice_end_to_end(path: Path, graph_and_db):
     if "requires" in expected:
         rules = " ".join(decision.rules_applied) if decision else ""
         for required in expected["requires"]:
-            assert required in rules, f"{key}: required rule '{required}' not in {decision.rules_applied}"
+            assert required in rules, (
+                f"{key}: required rule '{required}' not in {decision.rules_applied}"
+            )
     if "requires_any_of" in expected:
         rules = " ".join(decision.rules_applied) if decision else ""
         assert any(r in rules for r in expected["requires_any_of"]), (

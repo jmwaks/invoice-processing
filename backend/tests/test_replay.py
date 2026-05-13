@@ -1,5 +1,6 @@
 import json
 from pathlib import Path
+
 from app.tools.replay import replay_trace
 
 
@@ -9,7 +10,10 @@ def test_replay_summarises_final_state(tmp_path: Path, capsys):
     run_id = "test-run"
     events = [
         {"kind": "node.start", "node": "ingest", "ts": "t1"},
-        {"kind": "llm.call", "node": "ingest", "tokens_in": 100, "tokens_out": 50, "latency_ms": 200, "model": "grok-4"},
+        {
+            "kind": "llm.call", "node": "ingest",
+            "tokens_in": 100, "tokens_out": 50, "latency_ms": 200, "model": "grok-4",
+        },
         {"kind": "node.complete", "node": "ingest", "ts": "t2", "output": {"vendor": "X"}},
         {"kind": "approve.decision", "node": "approve", "output": {
             "outcome": "approved", "rationale": "ok", "rules_applied": ["auto_approve"],

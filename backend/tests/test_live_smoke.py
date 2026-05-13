@@ -1,10 +1,12 @@
 import os
 from pathlib import Path
+
 import pytest
-from app.config import get_settings
-from app.llm.grok_client import GrokClient
-from app.graph.state import InvoiceState
+
 from app.agents.ingest import run_ingest
+from app.config import get_settings
+from app.graph.state import InvoiceState
+from app.llm.grok_client import GrokClient
 from app.logging_.event_emitter import EventEmitter
 
 pytestmark = pytest.mark.skipif(

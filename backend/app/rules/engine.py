@@ -1,8 +1,12 @@
 from __future__ import annotations
+
 from dataclasses import dataclass, field
 from functools import lru_cache
 from pathlib import Path
-import yaml
+from typing import Any
+
+import yaml  # type: ignore[import-untyped]
+
 from app.graph.state import InvoiceState
 
 SEVERITY_RANK = {"low": 0, "medium": 1, "high": 2}
@@ -17,13 +21,13 @@ class RuleEvaluation:
 
 
 @lru_cache(maxsize=4)
-def _load_rules(path: Path) -> dict:
+def _load_rules(path: Path) -> dict[str, Any]:
     with path.open() as f:
-        return yaml.safe_load(f)
+        return yaml.safe_load(f)  # type: ignore[no-any-return]
 
 
-def _flatten_rule_list(items: list[dict]) -> dict:
-    out: dict = {}
+def _flatten_rule_list(items: list[dict[str, Any]]) -> dict[str, Any]:
+    out: dict[str, Any] = {}
     for d in items:
         out.update(d)
     return out
@@ -43,7 +47,7 @@ def evaluate_rules(state: InvoiceState, rules_path: Path | None = None) -> RuleE
     min_confidence = float(auto_cfg.get("extraction_confidence_gte", 0.8))
 
     issues = state.validation.issues if state.validation else []
-    hard_blocks = [i.kind for i in issues if i.kind in hard_kinds]
+    hard_blocks: list[str] = [i.kind for i in issues if i.kind in hard_kinds]
 
     total = state.invoice.total if state.invoice and state.invoice.total is not None else 0.0
     confidence = state.extraction_confidence or 0.0

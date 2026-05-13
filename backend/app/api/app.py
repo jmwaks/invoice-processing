@@ -1,7 +1,10 @@
 from __future__ import annotations
+
 from pathlib import Path
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+
 from app.api.routes import build_router
 from app.api.runs import RunRegistry
 from app.config import get_settings

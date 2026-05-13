@@ -1,6 +1,8 @@
 from __future__ import annotations
-from datetime import date
-from typing import Literal
+
+import datetime as dt
+from typing import Any, Literal
+
 from pydantic import BaseModel
 
 
@@ -14,8 +16,8 @@ class LineItem(BaseModel):
 class InvoiceData(BaseModel):
     invoice_number: str | None
     vendor: str | None
-    date: date | None
-    due_date: date | None
+    date: dt.date | None
+    due_date: dt.date | None
     line_items: list[LineItem]
     subtotal: float | None
     tax_amount: float | None
@@ -92,7 +94,7 @@ class Critique(BaseModel):
 
 class Decision(BaseModel):
     # Canonical fields used by downstream nodes and the UI summary.
-    # They mirror final_proposal — kept top-level so callers do not have to traverse the audit trail.
+    # They mirror final_proposal — kept top-level so callers do not have to traverse the trail.
     outcome: Literal["approved", "rejected", "needs_review"]
     rationale: str
     rules_applied: list[str]
@@ -111,6 +113,6 @@ class InvoiceState(BaseModel):
     extraction_confidence: float | None = None
     validation: ValidationReport | None = None
     decision: Decision | None = None
-    payment_receipt: dict | None = None
+    payment_receipt: dict[str, Any] | None = None
     error: str | None = None
-    events: list[dict] = []
+    events: list[dict[str, Any]] = []

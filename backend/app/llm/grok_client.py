@@ -1,8 +1,10 @@
 from __future__ import annotations
+
 import json
 from dataclasses import dataclass
 from time import perf_counter
-from typing import Type, TypeVar
+from typing import TypeVar
+
 from openai import OpenAI
 from pydantic import BaseModel, ValidationError
 
@@ -24,7 +26,7 @@ class GrokClient:
         self.sdk = sdk or OpenAI(api_key=api_key, base_url=base_url)
 
     def structured_complete(
-        self, *, system: str, user: str, schema: Type[T], max_retries: int = 1,
+        self, *, system: str, user: str, schema: type[T], max_retries: int = 1,
     ) -> tuple[T, CallMeta]:
         """One LLM call with one retry on Pydantic validation failure."""
         attempts = 0
@@ -44,7 +46,7 @@ class GrokClient:
                         f"{last_error}\nReturn corrected JSON only."
                     ),
                 })
-            resp = self.sdk.chat.completions.create(
+            resp = self.sdk.chat.completions.create(  # type: ignore[call-overload]
                 model=self.model,
                 messages=messages,
                 response_format={"type": "json_object"},

@@ -1,8 +1,11 @@
 from __future__ import annotations
+
 import asyncio
 import uuid
 from dataclasses import dataclass, field
 from pathlib import Path
+from typing import Any
+
 from app.graph.state import InvoiceState
 from app.logging_.event_emitter import EventEmitter
 
@@ -12,7 +15,7 @@ class Run:
     run_id: str
     state: InvoiceState
     emitter: EventEmitter
-    subscribers: list[asyncio.Queue] = field(default_factory=list)
+    subscribers: list[asyncio.Queue[dict[str, Any]]] = field(default_factory=list)
     done: bool = False
 
 
@@ -20,7 +23,7 @@ class _FanoutEmitter(EventEmitter):
     """Emitter that fans out to every subscriber on its parent Run."""
     _run: Run | None = None
 
-    def emit(self, kind: str, **payload):
+    def emit(self, kind: str, **payload: Any) -> dict[str, Any]:
         event = super().emit(kind, **payload)
         if self._run is not None:
             for q in self._run.subscribers:
@@ -51,9 +54,9 @@ class RunRegistry:
     def list_ids(self) -> list[str]:
         return list(self._runs.keys())
 
-    def subscribe(self, run_id: str) -> asyncio.Queue:
+    def subscribe(self, run_id: str) -> asyncio.Queue[dict[str, Any]]:
         run = self._runs[run_id]
-        q: asyncio.Queue = asyncio.Queue()
+        q: asyncio.Queue[dict[str, Any]] = asyncio.Queue()
         for e in run.state.events:
             q.put_nowait(e)
         run.subscribers.append(q)
@@ -64,4 +67,8 @@ class RunRegistry:
         if run:
             run.done = True
             for q in run.subscribers:
-                q.put_nowait({"kind": "run.complete", "ts": "", "final_state": run.state.model_dump(mode="json")})
+                q.put_nowait({
+                    "kind": "run.complete",
+                    "ts": "",
+                    "final_state": run.state.model_dump(mode="json"),
+                })

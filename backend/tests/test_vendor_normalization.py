@@ -1,4 +1,5 @@
 import pytest
+
 from app.db.init_db import normalize_vendor
 
 

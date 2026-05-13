@@ -1,6 +1,8 @@
 from __future__ import annotations
+
 import sqlite3
 from pathlib import Path
+
 from app.config import get_settings
 from app.graph.state import InventoryLookupResult
 

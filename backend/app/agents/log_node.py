@@ -1,7 +1,9 @@
 from __future__ import annotations
+
 import json
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
+
 from app.graph.state import InvoiceState
 from app.logging_.event_emitter import EventEmitter
 
@@ -13,6 +15,7 @@ def run_log(
     rejections_file = rejections_file or emitter.log_dir / "rejections.jsonl"
     rejections_file.parent.mkdir(parents=True, exist_ok=True)
 
+    record: dict[str, object]
     if state.error and state.invoice is None:
         record = {
             "run_id": state.run_id,
@@ -23,7 +26,7 @@ def run_log(
             "rules_applied": [],
             "validation_issues": [],
             "suspicion_signals": [],
-            "rejected_at": datetime.now(timezone.utc).isoformat(),
+            "rejected_at": datetime.now(UTC).isoformat(),
         }
         emitter.emit("log.unprocessable_written", node="log", output=record)
     else:
@@ -36,9 +39,11 @@ def run_log(
             "outcome": decision.outcome if decision else "rejected",
             "rationale": decision.rationale if decision else "",
             "rules_applied": decision.rules_applied if decision else [],
-            "validation_issues": [i.model_dump() for i in (state.validation.issues if state.validation else [])],
+            "validation_issues": [
+                i.model_dump() for i in (state.validation.issues if state.validation else [])
+            ],
             "suspicion_signals": [s.model_dump() for s in state.suspicion_signals],
-            "rejected_at": datetime.now(timezone.utc).isoformat(),
+            "rejected_at": datetime.now(UTC).isoformat(),
         }
         emitter.emit("log.rejection_written", node="log", output=record)
 

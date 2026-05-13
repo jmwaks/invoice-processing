@@ -1,9 +1,11 @@
 from __future__ import annotations
+
 import argparse
 import re
 import sqlite3
 from pathlib import Path
-import yaml
+
+import yaml  # type: ignore[import-untyped]
 
 INVENTORY_DDL = """
 CREATE TABLE IF NOT EXISTS inventory (

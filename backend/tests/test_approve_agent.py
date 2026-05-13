@@ -1,10 +1,17 @@
 from pathlib import Path
 from unittest.mock import MagicMock
+
+from app.agents.approve import route_after_approve, run_approve
 from app.graph.state import (
-    InvoiceData, InvoiceState, ValidationIssue, ValidationReport, LineItem,
-    Proposal, Critique, Decision,
+    Critique,
+    Decision,
+    InvoiceData,
+    InvoiceState,
+    LineItem,
+    Proposal,
+    ValidationIssue,
+    ValidationReport,
 )
-from app.agents.approve import run_approve, route_after_approve
 from app.logging_.event_emitter import EventEmitter
 
 
@@ -29,11 +36,21 @@ def test_approve_hard_block_forces_reject_regardless_of_llm(tmp_path: Path):
     issue = ValidationIssue(kind="qty_exceeds_stock", item="GadgetX", detail="", severity="block")
     state = _state(total=15000.0, issues=[issue])
 
+    _ok = Proposal(
+        outcome="approved", rationale="seems fine", rules_applied=[], unresolved_concerns=[]
+    )
+    _crit = Critique(agrees=True, objections=[], missed_signals=[], rule_misapplications=[])
     llm = MagicMock()
     llm.structured_complete.side_effect = [
-        (Proposal(outcome="approved", rationale="seems fine", rules_applied=[], unresolved_concerns=[]), _fake_meta()),
-        (Critique(agrees=True, objections=[], missed_signals=[], rule_misapplications=[]), _fake_meta()),
-        (Proposal(outcome="approved", rationale="confirmed", rules_applied=[], unresolved_concerns=[]), _fake_meta()),
+        (_ok, _fake_meta()),
+        (_crit, _fake_meta()),
+        (
+            Proposal(
+                outcome="approved", rationale="confirmed",
+                rules_applied=[], unresolved_concerns=[],
+            ),
+            _fake_meta(),
+        ),
     ]
 
     emitter = EventEmitter("r", state.events, tmp_path / "logs")
@@ -46,10 +63,15 @@ def test_approve_hard_block_forces_reject_regardless_of_llm(tmp_path: Path):
 def test_approve_clean_invoice_approves(tmp_path: Path):
     state = _state(total=1000.0)
     llm = MagicMock()
+    _approved = Proposal(
+        outcome="approved", rationale="clean",
+        rules_applied=["auto_approve"], unresolved_concerns=[],
+    )
+    _crit = Critique(agrees=True, objections=[], missed_signals=[], rule_misapplications=[])
     llm.structured_complete.side_effect = [
-        (Proposal(outcome="approved", rationale="clean", rules_applied=["auto_approve"], unresolved_concerns=[]), _fake_meta()),
-        (Critique(agrees=True, objections=[], missed_signals=[], rule_misapplications=[]), _fake_meta()),
-        (Proposal(outcome="approved", rationale="clean", rules_applied=["auto_approve"], unresolved_concerns=[]), _fake_meta()),
+        (_approved, _fake_meta()),
+        (_crit, _fake_meta()),
+        (_approved, _fake_meta()),
     ]
     emitter = EventEmitter("r", state.events, tmp_path / "logs")
     out = run_approve(state, llm=llm, emitter=emitter)
@@ -61,10 +83,21 @@ def test_approve_clean_invoice_approves(tmp_path: Path):
 def test_approve_critic_revises_initial(tmp_path: Path):
     state = _state(total=12000.0)
     llm = MagicMock()
+    _prop1 = Proposal(
+        outcome="approved", rationale="passed checks",
+        rules_applied=["scrutiny"], unresolved_concerns=[],
+    )
+    _crit = Critique(
+        agrees=False, objections=["missed risk"], missed_signals=[], rule_misapplications=[],
+    )
+    _prop2 = Proposal(
+        outcome="needs_review", rationale="critic raised concern",
+        rules_applied=["scrutiny"], unresolved_concerns=["missed risk"],
+    )
     llm.structured_complete.side_effect = [
-        (Proposal(outcome="approved", rationale="passed checks", rules_applied=["scrutiny"], unresolved_concerns=[]), _fake_meta()),
-        (Critique(agrees=False, objections=["missed risk"], missed_signals=[], rule_misapplications=[]), _fake_meta()),
-        (Proposal(outcome="needs_review", rationale="critic raised concern", rules_applied=["scrutiny"], unresolved_concerns=["missed risk"]), _fake_meta()),
+        (_prop1, _fake_meta()),
+        (_crit, _fake_meta()),
+        (_prop2, _fake_meta()),
     ]
     emitter = EventEmitter("r", state.events, tmp_path / "logs")
     out = run_approve(state, llm=llm, emitter=emitter)
@@ -76,10 +109,11 @@ def test_approve_critic_revises_initial(tmp_path: Path):
 def test_approve_critique_failure_escalates_to_needs_review(tmp_path: Path):
     state = _state(total=500.0)
     llm = MagicMock()
+    _ok = Proposal(outcome="approved", rationale="ok", rules_applied=[], unresolved_concerns=[])
     llm.structured_complete.side_effect = [
-        (Proposal(outcome="approved", rationale="ok", rules_applied=[], unresolved_concerns=[]), _fake_meta()),
+        (_ok, _fake_meta()),
         RuntimeError("simulated critique timeout"),
-        (Proposal(outcome="approved", rationale="ok", rules_applied=[], unresolved_concerns=[]), _fake_meta()),
+        (_ok, _fake_meta()),
     ]
     emitter = EventEmitter("r", state.events, tmp_path / "logs")
     out = run_approve(state, llm=llm, emitter=emitter)

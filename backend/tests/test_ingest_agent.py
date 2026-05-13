@@ -1,7 +1,8 @@
 from pathlib import Path
 from unittest.mock import MagicMock
-from app.graph.state import InvoiceState
+
 from app.agents.ingest import run_ingest
+from app.graph.state import InvoiceState
 from app.logging_.event_emitter import EventEmitter
 
 

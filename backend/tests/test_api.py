@@ -1,7 +1,9 @@
 from pathlib import Path
 from unittest.mock import MagicMock
+
 import pytest
 from fastapi.testclient import TestClient
+
 from app.api.app import create_app
 from app.db.init_db import init_db
 

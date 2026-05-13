@@ -1,7 +1,10 @@
 from __future__ import annotations
+
 from pathlib import Path
 from typing import Any
-from langgraph.graph import StateGraph, END
+
+from langgraph.graph import END, StateGraph
+
 from app.agents.approve import route_after_approve, run_approve
 from app.agents.ingest import run_ingest
 from app.agents.log_node import run_log

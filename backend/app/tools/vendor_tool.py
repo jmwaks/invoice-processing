@@ -1,8 +1,10 @@
 from __future__ import annotations
+
 import sqlite3
 from pathlib import Path
-from app.db.init_db import normalize_vendor
+
 from app.config import get_settings
+from app.db.init_db import normalize_vendor
 from app.graph.state import VendorLookupResult
 
 

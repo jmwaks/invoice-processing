@@ -1,9 +1,12 @@
 from __future__ import annotations
+
 import hashlib
 import json
 from pathlib import Path
-from typing import Type, TypeVar
+from typing import TypeVar
+
 from pydantic import BaseModel
+
 from app.llm.grok_client import CallMeta, GrokClient
 
 T = TypeVar("T", bound=BaseModel)
@@ -25,7 +28,7 @@ class MockGrokClient(GrokClient):
         self.model = "grok-mock"
 
     def structured_complete(
-        self, *, system: str, user: str, schema: Type[T], max_retries: int = 1,
+        self, *, system: str, user: str, schema: type[T], max_retries: int = 1,
     ) -> tuple[T, CallMeta]:
         key = _key(system, user)
         path = FIXTURES_DIR / f"{key}.json"
@@ -43,7 +46,10 @@ class MockGrokClient(GrokClient):
         )
 
     @staticmethod
-    def record(system: str, user: str, response: BaseModel, *, tokens_in: int = 0, tokens_out: int = 0) -> Path:
+    def record(
+        system: str, user: str, response: BaseModel,
+        *, tokens_in: int = 0, tokens_out: int = 0,
+    ) -> Path:
         FIXTURES_DIR.mkdir(parents=True, exist_ok=True)
         key = _key(system, user)
         path = FIXTURES_DIR / f"{key}.json"

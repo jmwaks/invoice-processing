@@ -1,5 +1,7 @@
 from pathlib import Path
+
 import pytest
+
 from app.db.init_db import init_db
 
 SEED = Path(__file__).resolve().parent.parent / "app" / "db" / "seed.yaml"
