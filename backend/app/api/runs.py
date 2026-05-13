@@ -6,7 +6,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-from app.graph.state import InvoiceState
+from app.graph.state import InvoiceData, InvoiceState
 from app.logging_.event_emitter import EventEmitter
 
 
@@ -42,6 +42,21 @@ class RunRegistry:
     def create(self, *, source_path: str, file_format: str) -> Run:
         run_id = uuid.uuid4().hex
         state = InvoiceState(run_id=run_id, source_path=source_path, file_format=file_format)  # type: ignore[arg-type]
+        emitter = _FanoutEmitter(run_id, state.events, self.log_dir)
+        run = Run(run_id=run_id, state=state, emitter=emitter)
+        emitter._run = run
+        self._runs[run_id] = run
+        return run
+
+    def create_seeded(
+        self, *, source_path: str, file_format: str,
+        invoice: InvoiceData, parent_run_id: str,
+    ) -> Run:
+        run_id = uuid.uuid4().hex
+        state = InvoiceState(  # type: ignore[arg-type]
+            run_id=run_id, source_path=source_path, file_format=file_format,
+            invoice=invoice, parent_run_id=parent_run_id,
+        )
         emitter = _FanoutEmitter(run_id, state.events, self.log_dir)
         run = Run(run_id=run_id, state=state, emitter=emitter)
         emitter._run = run

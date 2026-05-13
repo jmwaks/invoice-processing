@@ -22,3 +22,21 @@ def test_registry_subscribe_receives_events(tmp_path: Path):
         ev = await asyncio.wait_for(q.get(), timeout=0.5)
         assert ev["kind"] == "node.start"
     asyncio.run(_run())
+
+
+def test_create_seeded_carries_parent_and_invoice(tmp_path):
+    from app.graph.state import InvoiceData, LineItem
+    registry = RunRegistry(log_dir=tmp_path)
+    invoice = InvoiceData(
+        invoice_number="INV-X", vendor="V",
+        date=None, due_date=None,
+        line_items=[LineItem(item="WidgetA", quantity=1, unit_price=250.0)],
+        subtotal=250.0, tax_amount=0.0, total=250.0,
+        currency="USD", payment_terms=None, raw_text="",
+    )
+    run = registry.create_seeded(
+        source_path="/tmp/x.txt", file_format="txt",
+        invoice=invoice, parent_run_id="parent-id",
+    )
+    assert run.state.parent_run_id == "parent-id"
+    assert run.state.invoice == invoice
