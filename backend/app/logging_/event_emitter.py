@@ -1,9 +1,12 @@
 from __future__ import annotations
 import asyncio
 import json
+import logging
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
+
+_logger = logging.getLogger(__name__)
 
 
 class EventEmitter:
@@ -34,5 +37,8 @@ class EventEmitter:
             try:
                 self.queue.put_nowait(event)
             except asyncio.QueueFull:
-                pass
+                _logger.warning(
+                    "sse queue full; dropping event kind=%s run_id=%s",
+                    kind, self.run_id,
+                )
         return event

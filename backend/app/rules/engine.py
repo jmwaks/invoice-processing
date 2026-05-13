@@ -1,5 +1,6 @@
 from __future__ import annotations
 from dataclasses import dataclass, field
+from functools import lru_cache
 from pathlib import Path
 import yaml
 from app.graph.state import InvoiceState
@@ -15,9 +16,17 @@ class RuleEvaluation:
     summary: str = ""
 
 
+@lru_cache(maxsize=4)
 def _load_rules(path: Path) -> dict:
     with path.open() as f:
         return yaml.safe_load(f)
+
+
+def _flatten_rule_list(items: list[dict]) -> dict:
+    out: dict = {}
+    for d in items:
+        out.update(d)
+    return out
 
 
 def evaluate_rules(state: InvoiceState, rules_path: Path | None = None) -> RuleEvaluation:
@@ -25,6 +34,13 @@ def evaluate_rules(state: InvoiceState, rules_path: Path | None = None) -> RuleE
         rules_path = Path(__file__).parent / "rules.yaml"
     rules = _load_rules(rules_path)
     hard_kinds = set(rules["hard_blocks"])
+
+    auto_cfg = _flatten_rule_list(rules.get("auto_approve_when", []))
+    scrut_cfg = _flatten_rule_list(rules.get("scrutiny_required_when", []))
+
+    total_cap = float(auto_cfg.get("total_usd_lte", 10_000))
+    scrutiny_total = float(scrut_cfg.get("total_usd_gt", 10_000))
+    min_confidence = float(auto_cfg.get("extraction_confidence_gte", 0.8))
 
     issues = state.validation.issues if state.validation else []
     hard_blocks = [i.kind for i in issues if i.kind in hard_kinds]
@@ -39,28 +55,28 @@ def evaluate_rules(state: InvoiceState, rules_path: Path | None = None) -> RuleE
 
     auto_approve = (
         not has_block
-        and total <= 10_000
+        and total <= total_cap
         and not has_warn
         and max_sev <= SEVERITY_RANK["low"]
-        and confidence >= 0.8
+        and confidence >= min_confidence
     )
     scrutiny = (
         has_block
-        or total > 10_000
+        or total > scrutiny_total
         or has_warn
         or max_sev >= SEVERITY_RANK["medium"]
-        or confidence < 0.8
+        or confidence < min_confidence
     )
     summary_parts = []
     if hard_blocks:
         summary_parts.append(f"hard_blocks={hard_blocks}")
-    if total > 10_000:
-        summary_parts.append(f"total>${10_000}: ${total:.2f}")
+    if total > scrutiny_total:
+        summary_parts.append(f"total>${scrutiny_total:.0f}: ${total:.2f}")
     if has_warn:
         summary_parts.append("validation_warn")
     if max_sev >= SEVERITY_RANK["medium"]:
         summary_parts.append("suspicion_medium+")
-    if confidence < 0.8:
+    if confidence < min_confidence:
         summary_parts.append(f"low_confidence={confidence:.2f}")
     return RuleEvaluation(
         hard_blocks=hard_blocks,
