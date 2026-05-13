@@ -48,6 +48,7 @@ Full design: [`docs/superpowers/specs/2026-05-13-invoice-processing-design.md`](
 - **Timeline** — live agent status with per-pass detail in the approver
 - **Source / Extracted** — original file alongside the structured extraction; suspicion signals as red chips
 - **Critique view** — initial proposal vs. critic vs. final, with changes highlighted
+- **Reconciliation & retry** — toggle "Edit" on any extraction to correct fields (typos, missing values, negative quantities), then "Save & retry" dispatches a new run that skips ingest and re-validates from your edits. Retried runs link back to their parent with a "↩ Retry of …" chip so before/after comparisons are one click apart.
 - **DB Inspector** — inventory and vendor tables; rows touched by the current run are highlighted
 - **Batch queue** — every run with outcome chips, one click to inspect
 
