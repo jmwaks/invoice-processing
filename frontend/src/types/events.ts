@@ -6,7 +6,7 @@ export type RunEvent =
   | { kind: "node.start"; node: NodeName; ts: string }
   | { kind: "node.complete"; node: NodeName; ts: string; output?: any }
   | { kind: "llm.call"; node: NodeName; ts: string; sub?: string; tokens_in: number; tokens_out: number; latency_ms: number; model: string }
-  | { kind: "tool.call"; node: NodeName; ts: string; tool: string; arguments: any; result: any }
+  | { kind: "tool.call"; node: NodeName; ts: string; tool: string; arguments: Record<string, unknown>; result: Record<string, unknown> }
   | { kind: "approve.rules_evaluated"; node: NodeName; ts: string; evaluation: any }
   | { kind: "approve.propose.start"; node: NodeName; ts: string }
   | { kind: "approve.propose.complete"; node: NodeName; ts: string; output: any }

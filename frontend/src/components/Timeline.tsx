@@ -9,12 +9,10 @@ type ToolCallEvent = Extract<RunEvent, { kind: "tool.call" }>;
 export function Timeline() {
   const activeId = useRunStore((s) => s.activeRunId);
   const run = useRunStore((s) => (activeId ? s.runs[activeId] : null));
-  const toolCallEvents = run
-    ? (run.events.filter((e): e is ToolCallEvent => e.kind === "tool.call"))
-    : [];
   if (!run) {
     return <div className="text-slate-400 text-sm p-4">No active run. Upload an invoice to start.</div>;
   }
+  const toolCallEvents = run.events.filter((e): e is ToolCallEvent => e.kind === "tool.call");
   return (
     <div className="bg-white border rounded p-4 space-y-2">
       <h2 className="font-semibold">Timeline · {run.runId.slice(0, 8)}</h2>

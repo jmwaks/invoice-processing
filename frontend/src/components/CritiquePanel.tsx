@@ -31,13 +31,13 @@ export function CritiquePanel() {
         <Cell title="Final" outcome={final.outcome} body={final.rationale} extras={final.rules_applied}
               changed={initial.outcome !== final.outcome} />
       </div>
-      {decision.tool_calls.length > 0 && (
+      {(decision.tool_calls ?? []).length > 0 && (
         <div className="bg-white border rounded p-3">
           <h3 className="font-semibold text-sm mb-2">Investigation tool calls</h3>
           <ul className="space-y-1">
-            {decision.tool_calls.map((tc, i) => (
+            {(decision.tool_calls ?? []).map((tc, i) => (
               <li key={i} className="text-xs font-mono bg-slate-50 p-2 rounded">
-                <span className="text-purple-700">{tc.tool}</span>(
+                <span className="text-purple-600">{tc.tool}</span>(
                 {JSON.stringify(tc.arguments)}) →{" "}
                 <span className="text-slate-700">{JSON.stringify(tc.result)}</span>
                 <span className="text-slate-400 ml-2">({tc.latency_ms}ms)</span>
