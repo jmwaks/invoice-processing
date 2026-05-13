@@ -771,7 +771,126 @@ git commit -m "feat(routing): wouter routes for / and /runs/:id with URL/store s
 
 ---
 
-### Task 9: TopBar component
+### Task 9: Toast primitive for global action errors
+
+**Files:**
+- Create: `frontend/src/store/toastStore.ts`
+- Create: `frontend/src/components/common/ToastContainer.tsx`
+- Modify: `frontend/src/components/layout/AppShell.tsx`
+
+- [ ] **Step 1: Build the toast store**
+
+Create `frontend/src/store/toastStore.ts`:
+
+```ts
+import { create } from "zustand";
+
+export type ToastKind = "error" | "success";
+
+export interface Toast {
+  id: number;
+  kind: ToastKind;
+  message: string;
+}
+
+interface ToastStore {
+  toasts: Toast[];
+  pushToast: (toast: Omit<Toast, "id">) => void;
+  dismissToast: (id: number) => void;
+}
+
+let nextId = 1;
+
+export const useToastStore = create<ToastStore>((set) => ({
+  toasts: [],
+  pushToast: (toast) => {
+    const id = nextId++;
+    set((s) => ({ toasts: [...s.toasts, { ...toast, id }] }));
+    // Auto-dismiss after 4 seconds.
+    setTimeout(() => {
+      set((s) => ({ toasts: s.toasts.filter((t) => t.id !== id) }));
+    }, 4000);
+  },
+  dismissToast: (id) =>
+    set((s) => ({ toasts: s.toasts.filter((t) => t.id !== id) })),
+}));
+```
+
+- [ ] **Step 2: Build the ToastContainer**
+
+Create `frontend/src/components/common/ToastContainer.tsx`:
+
+```tsx
+import { useToastStore } from "../../store/toastStore.ts";
+import { AlertTriangle, CheckCircle2, XCircle } from "./Icons.tsx";
+
+export function ToastContainer() {
+  const toasts = useToastStore((s) => s.toasts);
+  const dismissToast = useToastStore((s) => s.dismissToast);
+
+  return (
+    <div className="fixed bottom-4 right-4 z-50 flex flex-col gap-2 max-w-sm">
+      {toasts.map((t) => (
+        <div
+          key={t.id}
+          className={`flex items-start gap-2 px-3 py-2 rounded-lg border shadow-sm bg-white text-sm
+            ${t.kind === "error" ? "border-rose-200 text-rose-800" : "border-emerald-200 text-emerald-800"}`}
+        >
+          {t.kind === "error" ? (
+            <AlertTriangle size={16} className="text-rose-600 mt-0.5" />
+          ) : (
+            <CheckCircle2 size={16} className="text-emerald-600 mt-0.5" />
+          )}
+          <span className="flex-1">{t.message}</span>
+          <button
+            onClick={() => dismissToast(t.id)}
+            className="text-slate-400 hover:text-slate-600"
+            aria-label="dismiss"
+          >
+            <XCircle size={14} />
+          </button>
+        </div>
+      ))}
+    </div>
+  );
+}
+```
+
+- [ ] **Step 3: Mount ToastContainer in AppShell**
+
+Update `frontend/src/components/layout/AppShell.tsx`:
+
+```tsx
+import type { ReactNode } from "react";
+import { ToastContainer } from "../common/ToastContainer.tsx";
+
+export function AppShell({ children }: { children: ReactNode }) {
+  return (
+    <div className="min-h-screen bg-slate-50 text-slate-900">
+      <div className="max-w-7xl mx-auto p-6">{children}</div>
+      <ToastContainer />
+    </div>
+  );
+}
+```
+
+- [ ] **Step 4: Type-check + build**
+
+```bash
+cd frontend && npx tsc --noEmit && npm run build
+```
+Expected: both succeed.
+
+- [ ] **Step 5: Commit**
+
+```bash
+git add frontend/src/store/toastStore.ts frontend/src/components/common/ToastContainer.tsx frontend/src/components/layout/AppShell.tsx
+git commit -m "feat(frontend): toast primitive for global action error feedback"
+```
+
+---
+
+### Task 10: TopBar component
 
 **Files:**
 - Create: `frontend/src/components/layout/TopBar.tsx`
@@ -784,27 +903,43 @@ Create `frontend/src/components/layout/TopBar.tsx`:
 ```tsx
 import { useRef } from "react";
 import { useLocation } from "wouter";
-import { createSampleRun, runBatch, uploadInvoice } from "../../api/client.ts";
+import { runBatch, uploadInvoice } from "../../api/client.ts";
 import { useRunStore } from "../../store/runStore.ts";
+import { useToastStore } from "../../store/toastStore.ts";
 import { Play, Upload } from "../common/Icons.tsx";
 
 export function TopBar() {
   const [, setLocation] = useLocation();
   const startBatch = useRunStore((s) => s.startBatch);
+  const pushToast = useToastStore((s) => s.pushToast);
   const fileRef = useRef<HTMLInputElement>(null);
 
   const onUploadClick = () => fileRef.current?.click();
 
   const onFiles = async (files: FileList | null) => {
     if (!files || files.length === 0) return;
-    const { run_id } = await uploadInvoice(files[0]);
-    setLocation(`/runs/${run_id}`);
+    try {
+      const { run_id } = await uploadInvoice(files[0]);
+      setLocation(`/runs/${run_id}`);
+    } catch (e) {
+      pushToast({
+        kind: "error",
+        message: `Upload failed: ${e instanceof Error ? e.message : String(e)}`,
+      });
+    }
   };
 
   const onRunAll = async () => {
-    const { run_ids } = await runBatch();
-    startBatch(run_ids);
-    setLocation("/");
+    try {
+      const { run_ids } = await runBatch();
+      startBatch(run_ids);
+      setLocation("/");
+    } catch (e) {
+      pushToast({
+        kind: "error",
+        message: `Run all failed: ${e instanceof Error ? e.message : String(e)}`,
+      });
+    }
   };
 
   return (
@@ -841,6 +976,7 @@ Replace `frontend/src/components/layout/AppShell.tsx`:
 
 ```tsx
 import type { ReactNode } from "react";
+import { ToastContainer } from "../common/ToastContainer.tsx";
 import { TopBar } from "./TopBar.tsx";
 
 export function AppShell({ children }: { children: ReactNode }) {
@@ -850,6 +986,7 @@ export function AppShell({ children }: { children: ReactNode }) {
         <TopBar />
         {children}
       </div>
+      <ToastContainer />
     </div>
   );
 }
@@ -873,7 +1010,7 @@ git commit -m "feat(layout): TopBar with upload + run all 16 actions"
 
 ## Phase 4 — Metrics band & left rail
 
-### Task 10: MetricsBand component
+### Task 11: MetricsBand component
 
 **Files:**
 - Create: `frontend/src/components/layout/MetricsBand.tsx`
@@ -968,6 +1105,7 @@ Update `frontend/src/components/layout/AppShell.tsx`:
 
 ```tsx
 import type { ReactNode } from "react";
+import { ToastContainer } from "../common/ToastContainer.tsx";
 import { MetricsBand } from "./MetricsBand.tsx";
 import { TopBar } from "./TopBar.tsx";
 
@@ -979,6 +1117,7 @@ export function AppShell({ children }: { children: ReactNode }) {
         <MetricsBand />
         {children}
       </div>
+      <ToastContainer />
     </div>
   );
 }
@@ -1028,7 +1167,7 @@ git commit -m "feat(layout): permanent MetricsBand on 1.5s poll"
 
 ---
 
-### Task 11: LeftRail — session summary card
+### Task 12: LeftRail — session summary card
 
 **Files:**
 - Create: `frontend/src/components/layout/LeftRail.tsx`
@@ -1120,7 +1259,7 @@ import { LeftRail } from "../components/layout/LeftRail.tsx";
 
 export function BatchPage() {
   return (
-    <div className="flex gap-6">
+    <div className="flex flex-col lg:flex-row gap-6">
       <LeftRail />
       <main className="flex-1 min-w-0">
         <div className="bg-white border border-slate-200 rounded-lg p-6">
@@ -1139,7 +1278,7 @@ import { LeftRail } from "../components/layout/LeftRail.tsx";
 
 export function CaseFilePage() {
   return (
-    <div className="flex gap-6">
+    <div className="flex flex-col lg:flex-row gap-6">
       <LeftRail />
       <main className="flex-1 min-w-0">
         <div className="bg-white border border-slate-200 rounded-lg p-6">
@@ -1167,7 +1306,7 @@ git commit -m "feat(layout): LeftRail with session summary card and batch progre
 
 ---
 
-### Task 12: LeftRail — runs list with retry indentation
+### Task 13: LeftRail — runs list with retry indentation
 
 **Files:**
 - Modify: `frontend/src/components/layout/LeftRail.tsx`
@@ -1341,7 +1480,7 @@ git commit -m "feat(rail): runs list with retry indentation and active-row accen
 
 ## Phase 5 — Batch Overview
 
-### Task 13: EmptyState intro card with sample buttons
+### Task 14: EmptyState intro card with sample buttons
 
 **Files:**
 - Create: `frontend/src/components/batch/EmptyState.tsx`
@@ -1354,6 +1493,7 @@ Create `frontend/src/components/batch/EmptyState.tsx`:
 import { useRef, useState } from "react";
 import { useLocation } from "wouter";
 import { createSampleRun, uploadInvoice } from "../../api/client.ts";
+import { useToastStore } from "../../store/toastStore.ts";
 import { Upload } from "../common/Icons.tsx";
 
 const SAMPLES: Array<{ filename: string; label: string; subtitle: string }> = [
@@ -1365,6 +1505,7 @@ const SAMPLES: Array<{ filename: string; label: string; subtitle: string }> = [
 export function EmptyState() {
   const [, setLocation] = useLocation();
   const [pending, setPending] = useState<string | null>(null);
+  const pushToast = useToastStore((s) => s.pushToast);
   const fileRef = useRef<HTMLInputElement>(null);
 
   const onSample = async (filename: string) => {
@@ -1372,6 +1513,11 @@ export function EmptyState() {
     try {
       const { run_id } = await createSampleRun(filename);
       setLocation(`/runs/${run_id}`);
+    } catch (e) {
+      pushToast({
+        kind: "error",
+        message: `Sample run failed: ${e instanceof Error ? e.message : String(e)}`,
+      });
     } finally {
       setPending(null);
     }
@@ -1379,8 +1525,15 @@ export function EmptyState() {
 
   const onFiles = async (files: FileList | null) => {
     if (!files || files.length === 0) return;
-    const { run_id } = await uploadInvoice(files[0]);
-    setLocation(`/runs/${run_id}`);
+    try {
+      const { run_id } = await uploadInvoice(files[0]);
+      setLocation(`/runs/${run_id}`);
+    } catch (e) {
+      pushToast({
+        kind: "error",
+        message: `Upload failed: ${e instanceof Error ? e.message : String(e)}`,
+      });
+    }
   };
 
   return (
@@ -1447,7 +1600,7 @@ git commit -m "feat(batch): EmptyState intro card with three sample-invoice butt
 
 ---
 
-### Task 14: BatchTable with filter & sort
+### Task 15: BatchTable with filter & sort
 
 **Files:**
 - Create: `frontend/src/components/batch/BatchTable.tsx`
@@ -1618,7 +1771,7 @@ git commit -m "feat(batch): BatchTable with filter/sort and OutcomeChip primitiv
 
 ---
 
-### Task 15: Compose BatchPage with header, progress, table, empty state
+### Task 16: Compose BatchPage with header, progress, table, empty state
 
 **Files:**
 - Create: `frontend/src/components/batch/BatchHeader.tsx`
@@ -1692,7 +1845,7 @@ export function BatchPage() {
   const isEmpty = runs !== undefined && runs.length === 0;
 
   return (
-    <div className="flex gap-6">
+    <div className="flex flex-col lg:flex-row gap-6">
       <LeftRail />
       <main className="flex-1 min-w-0">
         {isEmpty ? (
@@ -1805,7 +1958,7 @@ git commit -m "feat(batch): assemble BatchPage with header, progress, table, emp
 
 ## Phase 6 — Case File scaffolding
 
-### Task 16: Breadcrumb (context-aware)
+### Task 17: Breadcrumb (context-aware)
 
 **Files:**
 - Create: `frontend/src/components/casefile/Breadcrumb.tsx`
@@ -1898,7 +2051,7 @@ git commit -m "feat(casefile): context-aware Breadcrumb with retry + supersessio
 
 ---
 
-### Task 17: HeroCard
+### Task 18: HeroCard
 
 **Files:**
 - Create: `frontend/src/components/casefile/HeroCard.tsx`
@@ -1964,7 +2117,7 @@ git commit -m "feat(casefile): HeroCard with vendor, amount, outcome chip"
 
 ---
 
-### Task 18: StageStrip (sticky)
+### Task 19: StageStrip (sticky)
 
 **Files:**
 - Create: `frontend/src/components/casefile/StageStrip.tsx`
@@ -2044,7 +2197,7 @@ git commit -m "feat(casefile): sticky StageStrip with pulsing running pip"
 
 ---
 
-### Task 19: CaseFilePage shell with hydration
+### Task 20: CaseFilePage shell with hydration
 
 **Files:**
 - Modify: `frontend/src/pages/CaseFilePage.tsx`
@@ -2054,7 +2207,7 @@ git commit -m "feat(casefile): sticky StageStrip with pulsing running pip"
 Replace `frontend/src/pages/CaseFilePage.tsx`:
 
 ```tsx
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRoute } from "wouter";
 import { getRun } from "../api/client.ts";
 import { subscribeToRun } from "../api/sse.ts";
@@ -2070,6 +2223,7 @@ export function CaseFilePage() {
   const run = useRunStore((s) => (runId ? s.runs[runId] : null));
   const initializeRun = useRunStore((s) => s.initializeRun);
   const appendEvent = useRunStore((s) => s.appendEvent);
+  const [hydrating, setHydrating] = useState(false);
   const hydratedFor = useRef<string | null>(null);
   const sseFor = useRef<{ id: string; close: () => void } | null>(null);
 
@@ -2080,16 +2234,19 @@ export function CaseFilePage() {
     if (hydratedFor.current === runId) return;
     hydratedFor.current = runId;
     initializeRun(runId);
-    getRun(runId).then((state) => {
-      // Replace the store's state for this run with the server's view.
-      useRunStore.setState((s) => {
-        const existing = s.runs[runId];
-        if (!existing) return s;
-        return {
-          runs: { ...s.runs, [runId]: { ...existing, state, done: state.decision !== null || state.error !== null } },
-        };
-      });
-    });
+    setHydrating(true);
+    getRun(runId)
+      .then((state) => {
+        // Replace the store's state for this run with the server's view.
+        useRunStore.setState((s) => {
+          const existing = s.runs[runId];
+          if (!existing) return s;
+          return {
+            runs: { ...s.runs, [runId]: { ...existing, state, done: state.decision !== null || state.error !== null } },
+          };
+        });
+      })
+      .finally(() => setHydrating(false));
   }, [runId, run, initializeRun]);
 
   // Open SSE if run is in progress.
@@ -2108,8 +2265,22 @@ export function CaseFilePage() {
 
   if (!runId) return null;
 
+  // Show skeleton while hydrating a fresh deep-link (prevents the "—" flash).
+  if (hydrating && !run?.state.invoice) {
+    return (
+      <div className="flex flex-col lg:flex-row gap-6">
+        <LeftRail />
+        <main className="flex-1 min-w-0">
+          <div className="h-6 w-48 bg-slate-200/60 rounded animate-pulse mb-4" />
+          <div className="h-32 bg-slate-200/60 rounded-lg animate-pulse mb-6" />
+          <div className="h-8 bg-slate-200/60 rounded animate-pulse" />
+        </main>
+      </div>
+    );
+  }
+
   return (
-    <div className="flex gap-6">
+    <div className="flex flex-col lg:flex-row gap-6">
       <LeftRail />
       <main className="flex-1 min-w-0">
         <Breadcrumb runId={runId} />
@@ -2157,7 +2328,7 @@ git commit -m "feat(casefile): page shell with cold-load hydration + lazy SSE"
 
 ## Phase 7 — Source / Extraction
 
-### Task 20: Source panel with inline suspicion annotations
+### Task 21: Source panel with inline suspicion annotations
 
 **Files:**
 - Create: `frontend/src/lib/sourceAnnotation.ts`
@@ -2317,7 +2488,7 @@ git commit -m "feat(casefile): SourcePanel with inline annotations and chip fall
 
 ---
 
-### Task 21: Invoice validation rules utility
+### Task 22: Invoice validation rules utility
 
 **Files:**
 - Create: `frontend/src/lib/invoiceValidation.ts`
@@ -2422,7 +2593,7 @@ git commit -m "feat(casefile): pure validation rules for editable invoice draft"
 
 ---
 
-### Task 22: ExtractionReceipt with editable fields + Save & retry
+### Task 23: ExtractionReceipt with editable fields + Save & retry
 
 **Files:**
 - Create: `frontend/src/components/casefile/ExtractionReceipt.tsx`
@@ -2660,7 +2831,7 @@ git commit -m "feat(casefile): editable ExtractionReceipt with validation and Sa
 
 ## Phase 8 — Validation evidence, agent reasoning, action
 
-### Task 23: ValidationEvidence ledger
+### Task 24: ValidationEvidence ledger
 
 **Files:**
 - Create: `frontend/src/components/casefile/ValidationEvidence.tsx`
@@ -2769,7 +2940,7 @@ git commit -m "feat(casefile): ValidationEvidence ledger with severity icons"
 
 ---
 
-### Task 24: AgentReasoning with three cards + tool calls
+### Task 25: AgentReasoning with three cards + tool calls
 
 **Files:**
 - Create: `frontend/src/components/casefile/AgentReasoning.tsx`
@@ -2911,7 +3082,7 @@ git commit -m "feat(casefile): AgentReasoning with three stacked cards and tool 
 
 ---
 
-### Task 25: ActionCard
+### Task 26: ActionCard
 
 **Files:**
 - Create: `frontend/src/components/casefile/ActionCard.tsx`
@@ -2994,7 +3165,7 @@ git commit -m "feat(casefile): ActionCard for approved/rejected/needs_review/err
 
 ---
 
-### Task 26: Assemble CaseFilePage
+### Task 27: Assemble CaseFilePage
 
 **Files:**
 - Modify: `frontend/src/pages/CaseFilePage.tsx`
@@ -3004,7 +3175,7 @@ git commit -m "feat(casefile): ActionCard for approved/rejected/needs_review/err
 Replace `frontend/src/pages/CaseFilePage.tsx`:
 
 ```tsx
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRoute } from "wouter";
 import { getRun } from "../api/client.ts";
 import { subscribeToRun } from "../api/sse.ts";
@@ -3025,6 +3196,7 @@ export function CaseFilePage() {
   const run = useRunStore((s) => (runId ? s.runs[runId] : null));
   const initializeRun = useRunStore((s) => s.initializeRun);
   const appendEvent = useRunStore((s) => s.appendEvent);
+  const [hydrating, setHydrating] = useState(false);
   const hydratedFor = useRef<string | null>(null);
   const sseFor = useRef<{ id: string; close: () => void } | null>(null);
 
@@ -3034,22 +3206,25 @@ export function CaseFilePage() {
     if (hydratedFor.current === runId) return;
     hydratedFor.current = runId;
     initializeRun(runId);
-    getRun(runId).then((state) => {
-      useRunStore.setState((s) => {
-        const existing = s.runs[runId];
-        if (!existing) return s;
-        return {
-          runs: {
-            ...s.runs,
-            [runId]: {
-              ...existing,
-              state,
-              done: state.decision !== null || state.error !== null,
+    setHydrating(true);
+    getRun(runId)
+      .then((state) => {
+        useRunStore.setState((s) => {
+          const existing = s.runs[runId];
+          if (!existing) return s;
+          return {
+            runs: {
+              ...s.runs,
+              [runId]: {
+                ...existing,
+                state,
+                done: state.decision !== null || state.error !== null,
+              },
             },
-          },
-        };
-      });
-    });
+          };
+        });
+      })
+      .finally(() => setHydrating(false));
   }, [runId, run, initializeRun]);
 
   useEffect(() => {
@@ -3069,14 +3244,32 @@ export function CaseFilePage() {
   const state = run?.state ?? {};
   const inv = state.invoice;
 
+  // Show skeleton while hydrating a fresh deep-link (prevents the "—" flash).
+  if (hydrating && !inv) {
+    return (
+      <div className="flex flex-col lg:flex-row gap-6">
+        <LeftRail />
+        <main className="flex-1 min-w-0">
+          <div className="h-6 w-48 bg-slate-200/60 rounded animate-pulse mb-4" />
+          <div className="h-32 bg-slate-200/60 rounded-lg animate-pulse mb-6" />
+          <div className="h-12 bg-slate-200/60 rounded animate-pulse mb-6" />
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+            <div className="h-64 bg-slate-200/60 rounded-lg animate-pulse" />
+            <div className="h-64 bg-slate-200/60 rounded-lg animate-pulse" />
+          </div>
+        </main>
+      </div>
+    );
+  }
+
   return (
-    <div className="flex gap-6">
+    <div className="flex flex-col lg:flex-row gap-6">
       <LeftRail />
       <main className="flex-1 min-w-0">
         <Breadcrumb runId={runId} />
         <HeroCard state={state} />
         <StageStrip runId={runId} />
-        <div className="grid grid-cols-2 gap-6 mb-6">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
           <SourcePanel runId={runId} signals={state.suspicion_signals ?? []} />
           {inv ? (
             <ExtractionReceipt runId={runId} invoice={inv} />
@@ -3143,7 +3336,7 @@ git commit -m "feat(casefile): assemble full CaseFilePage with all sections"
 
 ## Phase 9 — Cleanup
 
-### Task 27: Delete deprecated components
+### Task 28: Delete deprecated components
 
 **Files:**
 - Delete: `frontend/src/components/BatchQueue.tsx`
@@ -3195,7 +3388,7 @@ git commit -m "chore(frontend): remove deprecated dashboard components"
 
 ---
 
-### Task 28: Final manual acceptance walkthrough
+### Task 29: Final manual acceptance walkthrough
 
 **Files:** none (validation only)
 
@@ -3256,31 +3449,36 @@ If everything passes, the implementation is complete.
 |---|---|
 | §1 Problem & audience | informs everything |
 | §2 North-star metaphor | informs everything |
-| §3 IA | Tasks 8 (routing), 9 (TopBar), 11 (LeftRail) |
-| §4 Metrics band | Task 10 |
-| §5 Left rail | Tasks 11, 12 |
-| §6 Batch Overview | Tasks 13, 14, 15 |
-| §7.1 Breadcrumb | Task 16 |
-| §7.2 HeroCard | Task 17 |
-| §7.3 Stage strip | Task 18 |
-| §7.4 Source + Extraction | Tasks 20, 21, 22 |
-| §7.5 Validation evidence | Task 23 |
-| §7.6 Agent reasoning | Task 24 |
-| §7.7 Action card | Task 25 |
+| §3 IA | Tasks 8 (routing), 10 (TopBar), 12 (LeftRail) |
+| §4 Metrics band | Task 11 |
+| §5 Left rail | Tasks 12, 13 |
+| §6 Batch Overview | Tasks 14, 15, 16 |
+| §7.1 Breadcrumb | Task 17 |
+| §7.2 HeroCard | Task 18 |
+| §7.3 Stage strip | Task 19 |
+| §7.4 Source + Extraction | Tasks 21, 22, 23 |
+| §7.5 Validation evidence | Task 24 |
+| §7.6 Agent reasoning | Task 25 |
+| §7.7 Action card | Task 26 |
 | §8 Visual system | Tasks 5 (fonts/Tailwind), 6 (icons), inlined in component tasks |
-| §9 Live behavior & streaming | Tasks 10 (poll), 11 (poll), 15 (poll), 19/26 (SSE), 15 (currentBatch clearance) |
-| §10 Routing | Task 8 + URL/store sync verified via Task 19 hydration |
+| §9 Live behavior & streaming | Tasks 11 (poll), 12 (poll), 16 (poll), 20/27 (SSE), 16 (currentBatch clearance) |
+| §10 Routing | Task 8 + URL/store sync verified via Task 20 hydration |
 | §11 Out of scope | nothing to implement |
-| §12 Component mapping | Task 27 deletes deprecated, all new components are created in Tasks 9-26 |
-| §13 Acceptance criteria | Verified in Tasks 15 (#1,3,4), 19 (#9), 26 (#1-9), 28 (full dry run) |
+| §12 Component mapping | Task 28 deletes deprecated, all new components created in Tasks 9-26 |
+| §13 Acceptance criteria | Verified in Tasks 16 (#1,3,4), 20 (#9), 27 (#1-9), 29 (full dry run) |
 | §14 Backend deltas | Tasks 1, 2, 3 |
 | §15 Frontend dependencies | Task 5 |
+| Resilience: global error toasts | Task 9 (primitive), 10 (TopBar usage), 14 (EmptyState usage) |
+| Resilience: hydration loading state | Tasks 20, 27 (skeleton during cold-load fetch) |
+| Responsiveness: 13" laptop layouts | Tasks 12 (stub stacks), 16 (BatchPage), 20, 27 (Case File grid + page flex) |
 
 No gaps.
 
 **Placeholder scan:** Reviewed — every code step has actual code, every command has an expected outcome, no "TBD" / "handle edge cases" / "similar to Task N" markers.
 
-**Type consistency:** Method names checked across tasks. `setActiveRunId`, `startBatch`, `clearBatchIfComplete`, `currentBatch`, `CurrentBatch`, `annotateSource`, `validateDraft`, `invoicesEqual`, `createSampleRun`, `retryRun` are all referenced consistently between definition and use. The `RunSummary` type alias is defined locally in two files (LeftRail.tsx, BatchTable.tsx) via `Awaited<ReturnType<typeof listRuns>>[number]` — this is intentional duplication for locality; if it grows we'd lift it to `types/state.ts`.
+**Type consistency:** Method names checked across tasks. `setActiveRunId`, `startBatch`, `clearBatchIfComplete`, `currentBatch`, `CurrentBatch`, `annotateSource`, `validateDraft`, `invoicesEqual`, `createSampleRun`, `retryRun`, `pushToast`, `dismissToast`, `useToastStore` are all referenced consistently between definition and use. The `RunSummary` type alias is defined locally in two files (LeftRail.tsx, BatchTable.tsx) via `Awaited<ReturnType<typeof listRuns>>[number]` — intentional duplication for locality; if it grows we'd lift it to `types/state.ts`.
+
+**Future work** (not part of this plan): if frontend test coverage becomes needed, add `vitest` + `@testing-library/react`. Highest-value targets for unit tests are the pure utility modules — `lib/sourceAnnotation.ts` (annotation + chip-fallback logic), `lib/invoiceValidation.ts` (per-field rules, soft-warning math), and the `groupRunsByParent` helper in `LeftRail.tsx`. These are pure functions with no DOM dependencies and would catch regressions in the most logic-heavy parts of the frontend.
 
 ---
 
