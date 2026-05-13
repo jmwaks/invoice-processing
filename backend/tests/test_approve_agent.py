@@ -73,6 +73,23 @@ def test_approve_critic_revises_initial(tmp_path: Path):
     assert out.decision.final_proposal.outcome == "needs_review"
 
 
+def test_approve_critique_failure_escalates_to_needs_review(tmp_path: Path):
+    state = _state(total=500.0)
+    llm = MagicMock()
+    llm.structured_complete.side_effect = [
+        (Proposal(outcome="approved", rationale="ok", rules_applied=[], unresolved_concerns=[]), _fake_meta()),
+        RuntimeError("simulated critique timeout"),
+        (Proposal(outcome="approved", rationale="ok", rules_applied=[], unresolved_concerns=[]), _fake_meta()),
+    ]
+    emitter = EventEmitter("r", state.events, tmp_path / "logs")
+    out = run_approve(state, llm=llm, emitter=emitter)
+    assert out.decision.outcome == "needs_review"
+    assert "Critique pass failed" in out.decision.rationale
+    # Verify the synthetic critique landed in the audit trail
+    assert out.decision.critique.agrees is False
+    assert any("critique pass failed" in o for o in out.decision.critique.objections)
+
+
 def _dec(outcome):
     p = Proposal(outcome=outcome, rationale="", rules_applied=[], unresolved_concerns=[])
     c = Critique(agrees=True, objections=[], missed_signals=[], rule_misapplications=[])

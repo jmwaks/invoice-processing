@@ -72,6 +72,59 @@ def _context_block(state: InvoiceState, evaluation: RuleEvaluation) -> str:
     }, default=str, indent=2)
 
 
+def _run_propose(llm: GrokClient, emitter: EventEmitter, context: str) -> tuple[Proposal, object]:
+    emitter.emit("approve.propose.start", node="approve")
+    proposal, meta = llm.structured_complete(
+        system=PROPOSE_SYSTEM, user=context, schema=Proposal,
+    )
+    _emit_llm(emitter, "propose", meta)
+    emitter.emit("approve.propose.complete", node="approve", output=proposal.model_dump())
+    return proposal, meta
+
+
+def _run_critique(
+    llm: GrokClient, emitter: EventEmitter, context: str,
+    proposal: Proposal, raw_text: str | None,
+) -> tuple[Critique, bool]:
+    """Returns (critique, forced_review)."""
+    critique_user = context + "\n\nApprover proposal:\n" + proposal.model_dump_json(indent=2)
+    if raw_text:
+        critique_user += "\n\nRaw invoice text:\n" + raw_text
+    emitter.emit("approve.critique.start", node="approve")
+    try:
+        critique, meta = llm.structured_complete(
+            system=CRITIQUE_SYSTEM, user=critique_user, schema=Critique,
+        )
+        _emit_llm(emitter, "critique", meta)
+        emitter.emit("approve.critique.complete", node="approve", output=critique.model_dump())
+        return critique, False
+    except Exception as e:
+        _logger.exception("approve: critique pass failed")
+        emitter.emit("approve.critique.complete", node="approve", output={"error": str(e)})
+        return Critique(
+            agrees=False, objections=[f"critique pass failed: {e}"],
+            missed_signals=[], rule_misapplications=[],
+        ), True
+
+
+def _run_finalize(
+    llm: GrokClient, emitter: EventEmitter, context: str,
+    proposal: Proposal, critique: Critique,
+) -> Proposal:
+    finalize_user = (
+        context
+        + "\n\nInitial proposal:\n" + proposal.model_dump_json(indent=2)
+        + "\n\nCritique:\n" + critique.model_dump_json(indent=2)
+    )
+    emitter.emit("approve.finalize.start", node="approve")
+    final_proposal, meta = llm.structured_complete(
+        system=FINALIZE_SYSTEM, user=finalize_user, schema=Proposal,
+    )
+    _emit_llm(emitter, "finalize", meta)
+    emitter.emit("approve.finalize.complete", node="approve", output=final_proposal.model_dump())
+    return final_proposal
+
+
 def run_approve(state: InvoiceState, *, llm: GrokClient, emitter: EventEmitter) -> InvoiceState:
     emitter.emit("node.start", node="approve")
     evaluation = evaluate_rules(state)
@@ -83,44 +136,11 @@ def run_approve(state: InvoiceState, *, llm: GrokClient, emitter: EventEmitter) 
     })
 
     context = _context_block(state, evaluation)
+    raw_text = state.invoice.raw_text if state.invoice else None
 
-    emitter.emit("approve.propose.start", node="approve")
-    proposal, meta1 = llm.structured_complete(
-        system=PROPOSE_SYSTEM, user=context, schema=Proposal,
-    )
-    _emit_llm(emitter, "propose", meta1)
-    emitter.emit("approve.propose.complete", node="approve", output=proposal.model_dump())
-
-    critique_user = context + "\n\nApprover proposal:\n" + proposal.model_dump_json(indent=2)
-    if state.invoice and state.invoice.raw_text:
-        critique_user += "\n\nRaw invoice text:\n" + state.invoice.raw_text
-    emitter.emit("approve.critique.start", node="approve")
-    try:
-        critique, meta2 = llm.structured_complete(
-            system=CRITIQUE_SYSTEM, user=critique_user, schema=Critique,
-        )
-        _emit_llm(emitter, "critique", meta2)
-        emitter.emit("approve.critique.complete", node="approve", output=critique.model_dump())
-    except Exception as e:
-        _logger.exception("approve: critique pass failed")
-        emitter.emit("approve.critique.complete", node="approve", output={"error": str(e)})
-        critique = Critique(agrees=False, objections=[f"critique pass failed: {e}"],
-                            missed_signals=[], rule_misapplications=[])
-        forced_review = True
-    else:
-        forced_review = False
-
-    finalize_user = (
-        context
-        + "\n\nInitial proposal:\n" + proposal.model_dump_json(indent=2)
-        + "\n\nCritique:\n" + critique.model_dump_json(indent=2)
-    )
-    emitter.emit("approve.finalize.start", node="approve")
-    final_proposal, meta3 = llm.structured_complete(
-        system=FINALIZE_SYSTEM, user=finalize_user, schema=Proposal,
-    )
-    _emit_llm(emitter, "finalize", meta3)
-    emitter.emit("approve.finalize.complete", node="approve", output=final_proposal.model_dump())
+    proposal, _ = _run_propose(llm, emitter, context)
+    critique, forced_review = _run_critique(llm, emitter, context, proposal, raw_text)
+    final_proposal = _run_finalize(llm, emitter, context, proposal, critique)
 
     outcome = final_proposal.outcome
     rules_applied = list(final_proposal.rules_applied)
@@ -139,12 +159,8 @@ def run_approve(state: InvoiceState, *, llm: GrokClient, emitter: EventEmitter) 
         rationale = "Critique pass failed — escalated to needs_review. " + rationale
 
     state.decision = Decision(
-        outcome=outcome,
-        rationale=rationale,
-        rules_applied=rules_applied,
-        initial_proposal=proposal,
-        critique=critique,
-        final_proposal=final_proposal,
+        outcome=outcome, rationale=rationale, rules_applied=rules_applied,
+        initial_proposal=proposal, critique=critique, final_proposal=final_proposal,
     )
     emitter.emit("approve.decision", node="approve", output=state.decision.model_dump())
     emitter.emit("node.complete", node="approve", output={"outcome": outcome})
