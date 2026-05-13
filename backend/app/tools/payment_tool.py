@@ -5,7 +5,7 @@ from datetime import datetime, timezone
 def mock_payment(*, vendor: str, amount: float, invoice_number: str, run_id: str) -> dict:
     return {
         "status": "success",
-        "transaction_id": f"TXN-{run_id[:8]}",
+        "transaction_id": f"TXN-{invoice_number}-{run_id[:8]}",
         "vendor": vendor,
         "amount": amount,
         "invoice_number": invoice_number,

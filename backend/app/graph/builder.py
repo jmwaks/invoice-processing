@@ -1,5 +1,6 @@
 from __future__ import annotations
 from pathlib import Path
+from typing import Any
 from langgraph.graph import StateGraph, END
 from app.agents.approve import route_after_approve, run_approve
 from app.agents.ingest import run_ingest
@@ -15,7 +16,12 @@ def _emitter_for(state: InvoiceState, log_dir: Path) -> EventEmitter:
     return EventEmitter(state.run_id, state.events, log_dir)
 
 
-def build_graph(*, llm: GrokClient, db_path: Path, log_dir: Path):
+def build_graph(
+    *, llm: GrokClient, db_path: Path, log_dir: Path,
+    paid_invoices: set[str] | None = None,
+) -> Any:  # noqa: ANN401
+    if paid_invoices is None:
+        paid_invoices = set()
     graph = StateGraph(InvoiceState)
 
     def ingest_node(state: InvoiceState) -> InvoiceState:
@@ -28,7 +34,7 @@ def build_graph(*, llm: GrokClient, db_path: Path, log_dir: Path):
         return run_approve(state, llm=llm, emitter=_emitter_for(state, log_dir))
 
     def pay_node(state: InvoiceState) -> InvoiceState:
-        return run_pay(state, emitter=_emitter_for(state, log_dir))
+        return run_pay(state, emitter=_emitter_for(state, log_dir), paid_invoices=paid_invoices)
 
     def log_node_fn(state: InvoiceState) -> InvoiceState:
         return run_log(state, emitter=_emitter_for(state, log_dir))

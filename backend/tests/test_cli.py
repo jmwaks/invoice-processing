@@ -13,7 +13,7 @@ def test_cli_help_runs():
     python = str(VENV_PYTHON) if VENV_PYTHON.exists() else sys.executable
     result = subprocess.run(
         [python, "-m", "app.main", "--help"],
-        capture_output=True, text=True, cwd=str(BACKEND_DIR),
+        capture_output=True, text=True, cwd=str(BACKEND_DIR), timeout=10,
     )
     assert result.returncode == 0
     assert "--invoice_path" in result.stdout

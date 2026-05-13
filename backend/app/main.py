@@ -38,7 +38,8 @@ def _format_summary(final: dict) -> str:
     return "\n".join(lines)
 
 
-def run_one(invoice_path: Path, *, settings) -> dict:
+def _build_runtime(settings) -> tuple:
+    """Build the shared GrokClient and compiled graph once for all runs."""
     db = settings.invoice_processing_db_path
     if not db.exists():
         init_db(db, seed_path=_SEED_PATH, reset=True)
@@ -47,15 +48,22 @@ def run_one(invoice_path: Path, *, settings) -> dict:
         base_url=settings.xai_base_url,
         model=settings.xai_model,
     )
-    graph = build_graph(llm=llm, db_path=db, log_dir=settings.invoice_processing_log_dir)
+    paid: set[str] = set()
+    graph = build_graph(
+        llm=llm, db_path=db, log_dir=settings.invoice_processing_log_dir,
+        paid_invoices=paid,
+    )
+    return llm, graph, paid
+
+
+def run_one(invoice_path: Path, *, graph) -> dict:
     loaded = load_invoice_file(invoice_path)
     state = InvoiceState(
         run_id=uuid.uuid4().hex,
         source_path=str(invoice_path.resolve()),
         file_format=loaded.format,  # type: ignore[arg-type]
     )
-    final = graph.invoke(state)
-    return final
+    return graph.invoke(state)
 
 
 def main() -> int:
@@ -66,19 +74,20 @@ def main() -> int:
     ap.add_argument("--json", action="store_true", help="Print final state as JSON")
     args = ap.parse_args()
     settings = get_settings()
+    _llm, graph, _paid = _build_runtime(settings)
 
     if args.batch:
         paths = sorted(p for p in settings.invoice_processing_invoices_dir.iterdir()
                        if p.suffix.lower() in {".txt", ".json", ".csv", ".xml", ".pdf"})
         for p in paths:
             print(f"\n=== {p.name} ===")
-            final = run_one(p, settings=settings)
+            final = run_one(p, graph=graph)
             print(_format_summary(final))
         return 0
 
     if args.invoice_path is None:
         ap.error("--invoice_path is required unless --batch is set")
-    final = run_one(args.invoice_path, settings=settings)
+    final = run_one(args.invoice_path, graph=graph)
     if args.json:
         print(json.dumps(final, default=str, indent=2))
     else:

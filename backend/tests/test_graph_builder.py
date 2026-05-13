@@ -4,15 +4,12 @@ from app.db.init_db import init_db
 from app.graph.state import InvoiceState, Proposal, Critique, InvoiceData, LineItem
 from app.graph.builder import build_graph
 from app.agents.ingest import IngestResponse
-from app.agents.pay import reset_paid_invoices
-
 BACKEND_DIR = Path(__file__).resolve().parents[1]
 SEED = BACKEND_DIR / "app" / "db" / "seed.yaml"
 INVOICE_1001 = BACKEND_DIR / "data" / "invoices" / "invoice_1001.txt"
 
 
 def test_graph_compiles_and_runs_approved_path(tmp_path: Path):
-    reset_paid_invoices()
     db = tmp_path / "t.db"
     init_db(db, seed_path=SEED, reset=True)
 
