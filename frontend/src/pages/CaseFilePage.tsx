@@ -7,6 +7,7 @@ import { HeroCard } from "../components/casefile/HeroCard.tsx";
 import { StageStrip } from "../components/casefile/StageStrip.tsx";
 import { LeftRail } from "../components/layout/LeftRail.tsx";
 import { useRunStore } from "../store/runStore.ts";
+import { useToastStore } from "../store/toastStore.ts";
 
 export function CaseFilePage() {
   const [, params] = useRoute<{ id: string }>("/runs/:id");
@@ -14,6 +15,7 @@ export function CaseFilePage() {
   const run = useRunStore((s) => (runId ? s.runs[runId] : null));
   const initializeRun = useRunStore((s) => s.initializeRun);
   const appendEvent = useRunStore((s) => s.appendEvent);
+  const pushToast = useToastStore((s) => s.pushToast);
   const [hydrating, setHydrating] = useState(false);
   const hydratedFor = useRef<string | null>(null);
   const sseFor = useRef<{ id: string; close: () => void } | null>(null);
@@ -37,8 +39,14 @@ export function CaseFilePage() {
           };
         });
       })
+      .catch((err) =>
+        pushToast({
+          kind: "error",
+          message: `Failed to load run: ${err instanceof Error ? err.message : String(err)}`,
+        }),
+      )
       .finally(() => setHydrating(false));
-  }, [runId, run, initializeRun]);
+  }, [runId, run, initializeRun, pushToast]);
 
   // Open SSE if run is in progress.
   useEffect(() => {
