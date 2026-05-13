@@ -117,3 +117,56 @@ def test_records_lookups_for_ui(tmp_path: Path):
     out = run_validate(state, db_path=db, emitter=emitter)
     assert len(out.validation.inventory_lookups) == 1
     assert out.validation.vendor_lookup is not None
+    from app.graph.state import InventoryLookupResult, VendorLookupResult
+    assert isinstance(out.validation.inventory_lookups[0], InventoryLookupResult)
+    assert isinstance(out.validation.vendor_lookup, VendorLookupResult)
+
+
+def test_missing_total_blocks(tmp_path: Path):
+    db = _seeded(tmp_path)
+    state = _state(_inv(
+        line_items=[LineItem(item="WidgetA", quantity=1, unit_price=250.0)],
+        total=None,
+    ))
+    emitter = EventEmitter("r", state.events, tmp_path / "logs")
+    out = run_validate(state, db_path=db, emitter=emitter)
+    kinds = {i.kind for i in out.validation.issues}
+    assert "missing_total" in kinds
+
+
+def test_no_line_items_blocks(tmp_path: Path):
+    db = _seeded(tmp_path)
+    state = _state(_inv(line_items=[], total=0.0))
+    emitter = EventEmitter("r", state.events, tmp_path / "logs")
+    out = run_validate(state, db_path=db, emitter=emitter)
+    kinds = {i.kind for i in out.validation.issues}
+    assert "no_line_items" in kinds
+
+
+def test_past_due_date_warns(tmp_path: Path):
+    from datetime import date
+    db = _seeded(tmp_path)
+    state = _state(_inv(
+        date=date(2025, 1, 15),
+        due_date=date(2025, 1, 10),
+        line_items=[LineItem(item="WidgetA", quantity=1, unit_price=250.0)],
+        total=250.0,
+    ))
+    emitter = EventEmitter("r", state.events, tmp_path / "logs")
+    out = run_validate(state, db_path=db, emitter=emitter)
+    kinds = {i.kind for i in out.validation.issues}
+    assert "past_due_date" in kinds
+
+
+def test_total_math_error_warns(tmp_path: Path):
+    db = _seeded(tmp_path)
+    # 2 × $250 = $500, but invoice says total $9999 → math error
+    state = _state(_inv(
+        line_items=[LineItem(item="WidgetA", quantity=2, unit_price=250.0)],
+        subtotal=9999.0,
+        total=9999.0,
+    ))
+    emitter = EventEmitter("r", state.events, tmp_path / "logs")
+    out = run_validate(state, db_path=db, emitter=emitter)
+    kinds = {i.kind for i in out.validation.issues}
+    assert "total_math_error" in kinds

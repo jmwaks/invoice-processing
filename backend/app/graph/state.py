@@ -57,10 +57,23 @@ class ValidationIssue(BaseModel):
     severity: Literal["info", "warn", "block"]
 
 
+class InventoryLookupResult(BaseModel):
+    found: bool
+    item: str
+    stock: int | None = None
+    unit_price: float | None = None
+
+
+class VendorLookupResult(BaseModel):
+    found: bool
+    name: str
+    status: Literal["approved", "pending", "blocked"] | None = None
+
+
 class ValidationReport(BaseModel):
     issues: list[ValidationIssue]
-    inventory_lookups: list[dict]
-    vendor_lookup: dict | None
+    inventory_lookups: list[InventoryLookupResult]
+    vendor_lookup: VendorLookupResult | None
 
 
 class Proposal(BaseModel):
