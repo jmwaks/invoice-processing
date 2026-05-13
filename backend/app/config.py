@@ -17,6 +17,8 @@ class Settings(BaseSettings):
 
     run_live_tests: bool = False
 
+    manual_cost_per_invoice_usd: float = 12.0
+
 
 @lru_cache(maxsize=1)
 def get_settings() -> Settings:
