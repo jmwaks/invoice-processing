@@ -93,3 +93,34 @@ def test_invoice_state_supports_parent_run_id():
 def test_invoice_state_parent_run_id_optional():
     state = InvoiceState(run_id="r1", source_path="/tmp/x.txt", file_format="txt")
     assert state.parent_run_id is None
+
+
+def test_suspicion_signal_text_match_defaults_to_none():
+    from app.graph.state import SuspicionSignal
+
+    sig = SuspicionSignal(kind="urgent_language", detail="says URGENT", severity="medium")
+    assert sig.text_match is None
+
+
+def test_suspicion_signal_accepts_text_match_phrase():
+    from app.graph.state import SuspicionSignal
+
+    sig = SuspicionSignal(
+        kind="wire_transfer_demand",
+        detail="demands wire transfer",
+        severity="high",
+        text_match="wire transfer required within 24 hours",
+    )
+    assert sig.text_match == "wire transfer required within 24 hours"
+
+
+def test_suspicion_signal_text_match_round_trips_json():
+    from app.graph.state import SuspicionSignal
+
+    sig = SuspicionSignal(
+        kind="urgent_language", detail="x", severity="low",
+        text_match="URGENT — pay now",
+    )
+    payload = sig.model_dump_json()
+    restored = SuspicionSignal.model_validate_json(payload)
+    assert restored.text_match == "URGENT — pay now"

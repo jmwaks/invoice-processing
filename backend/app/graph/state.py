@@ -38,6 +38,7 @@ class SuspicionSignal(BaseModel):
     ]
     detail: str
     severity: Literal["low", "medium", "high"]
+    text_match: str | None = None
 
 
 class ValidationIssue(BaseModel):
