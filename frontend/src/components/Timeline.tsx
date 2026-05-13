@@ -45,7 +45,7 @@ export function Timeline() {
                       <span className="text-purple-600 font-mono">tool</span>
                       <span className="font-medium">{tc.tool}</span>
                       <span className="text-slate-500 truncate">
-                        {JSON.stringify(tc.args)} → {JSON.stringify(tc.result)}
+                        {JSON.stringify(tc.arguments)} → {JSON.stringify(tc.result)}
                       </span>
                     </li>
                   ))}
