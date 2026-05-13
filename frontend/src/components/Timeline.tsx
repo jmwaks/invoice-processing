@@ -1,11 +1,17 @@
 import { useRunStore } from "../store/runStore.ts";
+import type { RunEvent } from "../types/events.ts";
 import { StatusBadge } from "./StatusBadge.tsx";
 
 const STAGES = ["ingest", "validate", "approve", "pay", "log"] as const;
 
+type ToolCallEvent = Extract<RunEvent, { kind: "tool.call" }>;
+
 export function Timeline() {
   const activeId = useRunStore((s) => s.activeRunId);
   const run = useRunStore((s) => (activeId ? s.runs[activeId] : null));
+  const toolCallEvents = run
+    ? (run.events.filter((e): e is ToolCallEvent => e.kind === "tool.call"))
+    : [];
   if (!run) {
     return <div className="text-slate-400 text-sm p-4">No active run. Upload an invoice to start.</div>;
   }
@@ -32,6 +38,15 @@ export function Timeline() {
                     <li key={sub} className="flex items-center gap-2 text-xs">
                       <StatusBadge status={run.approveSubStages[sub]} />
                       <span className="font-mono">{sub}</span>
+                    </li>
+                  ))}
+                  {toolCallEvents.map((tc, i) => (
+                    <li key={`tool-${i}`} className="flex items-start gap-2 text-xs py-0.5">
+                      <span className="text-purple-600 font-mono">tool</span>
+                      <span className="font-medium">{tc.tool}</span>
+                      <span className="text-slate-500 truncate">
+                        {JSON.stringify(tc.args)} → {JSON.stringify(tc.result)}
+                      </span>
                     </li>
                   ))}
                 </ul>

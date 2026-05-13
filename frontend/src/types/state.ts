@@ -63,6 +63,13 @@ export interface Critique {
   rule_misapplications: string[];
 }
 
+export type ToolCall = {
+  tool: "lookup_inventory" | "lookup_vendor" | "recompute_totals";
+  arguments: Record<string, unknown>;
+  result: Record<string, unknown>;
+  latency_ms: number;
+};
+
 export interface Decision {
   outcome: Outcome;
   rationale: string;
@@ -70,6 +77,7 @@ export interface Decision {
   initial_proposal: Proposal;
   critique: Critique;
   final_proposal: Proposal;
+  tool_calls: ToolCall[];
 }
 
 export interface InvoiceState {

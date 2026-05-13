@@ -18,17 +18,34 @@ export function CritiquePanel() {
   const critique = decision.critique;
   const final = decision.final_proposal;
   return (
-    <div className="grid grid-cols-3 gap-3">
-      <Cell title="Initial proposal" outcome={initial.outcome} body={initial.rationale} extras={initial.rules_applied} />
-      <div className="bg-white border rounded p-3">
-        <h3 className="font-semibold text-sm">Critique</h3>
-        <p className="text-xs mt-1">{critique.agrees ? "Agrees" : "Disagrees"}</p>
-        {critique.objections.length > 0 && <List label="Objections" items={critique.objections} />}
-        {critique.missed_signals.length > 0 && <List label="Missed signals" items={critique.missed_signals} />}
-        {critique.rule_misapplications.length > 0 && <List label="Rule issues" items={critique.rule_misapplications} />}
+    <div className="space-y-3">
+      <div className="grid grid-cols-3 gap-3">
+        <Cell title="Initial proposal" outcome={initial.outcome} body={initial.rationale} extras={initial.rules_applied} />
+        <div className="bg-white border rounded p-3">
+          <h3 className="font-semibold text-sm">Critique</h3>
+          <p className="text-xs mt-1">{critique.agrees ? "Agrees" : "Disagrees"}</p>
+          {critique.objections.length > 0 && <List label="Objections" items={critique.objections} />}
+          {critique.missed_signals.length > 0 && <List label="Missed signals" items={critique.missed_signals} />}
+          {critique.rule_misapplications.length > 0 && <List label="Rule issues" items={critique.rule_misapplications} />}
+        </div>
+        <Cell title="Final" outcome={final.outcome} body={final.rationale} extras={final.rules_applied}
+              changed={initial.outcome !== final.outcome} />
       </div>
-      <Cell title="Final" outcome={final.outcome} body={final.rationale} extras={final.rules_applied}
-            changed={initial.outcome !== final.outcome} />
+      {decision.tool_calls.length > 0 && (
+        <div className="bg-white border rounded p-3">
+          <h3 className="font-semibold text-sm mb-2">Investigation tool calls</h3>
+          <ul className="space-y-1">
+            {decision.tool_calls.map((tc, i) => (
+              <li key={i} className="text-xs font-mono bg-slate-50 p-2 rounded">
+                <span className="text-purple-700">{tc.tool}</span>(
+                {JSON.stringify(tc.arguments)}) →{" "}
+                <span className="text-slate-700">{JSON.stringify(tc.result)}</span>
+                <span className="text-slate-400 ml-2">({tc.latency_ms}ms)</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
     </div>
   );
 }
