@@ -6,9 +6,23 @@ A working multi-agent prototype that ingests invoices in six formats (PDF, TXT, 
 
 Acme Corp's manual workflow loses $2M/year:
 
-- **30% error rate.** Six classes of error are now caught automatically: missing vendors, negative quantities, unknown items, out-of-stock items, overstock requests, and price drift. A propose-critique-finalize loop catches what a single LLM pass would miss.
-- **5-day delays.** Each invoice resolves in seconds; the "Run all 16" button processes the entire sample backlog while you watch.
-- **Frustrated stakeholders.** Every decision carries a written rationale tied to named rules. AP, vendors, and the VP see the same story.
+- **30% error rate.** Six classes of error caught automatically (missing vendor, negative quantity, unknown item, out-of-stock, overstock, price drift). The propose-critique-finalize loop in the approver catches what a single LLM pass would miss. **See:** outcome breakdown in the metrics tile.
+- **5-day delays.** Each invoice resolves in seconds. The "Run all 16" button processes the entire sample backlog while you watch. **See:** average processing time on the metrics tile.
+- **Frustrated stakeholders.** Every decision carries a written rationale tied to named rules. AP, vendors, and the VP read the same trace. **See:** the Critique panel.
+
+## Numbers you can read off the screen
+
+The dashboard's top tile is live across every run in the session:
+
+| Metric | What it answers |
+|---|---|
+| Invoices processed | How many runs this session |
+| Auto-approved (count and %) | What share clears without human review |
+| Avg processing time | Throughput vs. the 5-day manual baseline |
+| Total approved | Dollar value cleared |
+| Simulated savings | Runs × `MANUAL_COST_PER_INVOICE_USD` (default $12, override in `.env`) |
+
+The $12/invoice default is an industry benchmark for fully-loaded AP manual processing — set the env var to your org's number for a credible bottom-line figure on the demo.
 
 ## Quick start
 
