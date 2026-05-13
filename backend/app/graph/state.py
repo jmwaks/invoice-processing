@@ -115,6 +115,7 @@ class Decision(BaseModel):
 class InvoiceState(BaseModel):
     run_id: str
     source_path: str
+    parent_run_id: str | None = None
     file_format: Literal["txt", "json", "csv", "xml", "pdf", "email"]
     invoice: InvoiceData | None = None
     suspicion_signals: list[SuspicionSignal] = []

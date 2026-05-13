@@ -80,3 +80,16 @@ def test_tool_call_rejects_negative_latency():
             result={"found": False, "item": "WidgetA"},
             latency_ms=-1,
         )
+
+
+def test_invoice_state_supports_parent_run_id():
+    state = InvoiceState(
+        run_id="r2", source_path="/tmp/x.txt", file_format="txt",
+        parent_run_id="r1",
+    )
+    assert state.parent_run_id == "r1"
+
+
+def test_invoice_state_parent_run_id_optional():
+    state = InvoiceState(run_id="r1", source_path="/tmp/x.txt", file_format="txt")
+    assert state.parent_run_id is None
