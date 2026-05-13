@@ -149,3 +149,9 @@ def run_approve(state: InvoiceState, *, llm: GrokClient, emitter: EventEmitter) 
     emitter.emit("approve.decision", node="approve", output=state.decision.model_dump())
     emitter.emit("node.complete", node="approve", output={"outcome": outcome})
     return state
+
+
+def route_after_approve(state: InvoiceState) -> str:
+    if state.decision is None:
+        return "log"
+    return "pay" if state.decision.outcome == "approved" else "log"

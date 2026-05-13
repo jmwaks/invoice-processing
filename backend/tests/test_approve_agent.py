@@ -2,9 +2,9 @@ from pathlib import Path
 from unittest.mock import MagicMock
 from app.graph.state import (
     InvoiceData, InvoiceState, ValidationIssue, ValidationReport, LineItem,
-    Proposal, Critique,
+    Proposal, Critique, Decision,
 )
-from app.agents.approve import run_approve
+from app.agents.approve import run_approve, route_after_approve
 from app.logging_.event_emitter import EventEmitter
 
 
@@ -71,3 +71,28 @@ def test_approve_critic_revises_initial(tmp_path: Path):
     assert out.decision.outcome == "needs_review"
     assert out.decision.initial_proposal.outcome == "approved"
     assert out.decision.final_proposal.outcome == "needs_review"
+
+
+def _dec(outcome):
+    p = Proposal(outcome=outcome, rationale="", rules_applied=[], unresolved_concerns=[])
+    c = Critique(agrees=True, objections=[], missed_signals=[], rule_misapplications=[])
+    return Decision(outcome=outcome, rationale="", rules_applied=[],
+                    initial_proposal=p, critique=c, final_proposal=p)
+
+
+def test_route_after_approve_approved_goes_to_pay():
+    state = InvoiceState(run_id="r", source_path="x", file_format="txt")
+    state.decision = _dec("approved")
+    assert route_after_approve(state) == "pay"
+
+
+def test_route_after_approve_rejected_goes_to_log():
+    state = InvoiceState(run_id="r", source_path="x", file_format="txt")
+    state.decision = _dec("rejected")
+    assert route_after_approve(state) == "log"
+
+
+def test_route_after_approve_needs_review_goes_to_log():
+    state = InvoiceState(run_id="r", source_path="x", file_format="txt")
+    state.decision = _dec("needs_review")
+    assert route_after_approve(state) == "log"
