@@ -1,3 +1,6 @@
+import pytest
+from pydantic import ValidationError
+
 from app.graph.state import (
     Critique,
     Decision,
@@ -26,8 +29,6 @@ def test_line_item_requires_quantity():
 
 
 def test_validation_issue_kinds_constrained():
-    import pytest
-    from pydantic import ValidationError
     with pytest.raises(ValidationError):
         ValidationIssue(kind="not_a_real_kind", detail="x", severity="warn")
 
@@ -69,3 +70,13 @@ def test_decision_defaults_tool_calls_to_empty_list():
         initial_proposal=proposal, critique=critique, final_proposal=proposal,
     )
     assert decision.tool_calls == []
+
+
+def test_tool_call_rejects_negative_latency():
+    with pytest.raises(ValidationError):
+        ToolCall(
+            tool="lookup_inventory",
+            arguments={"item": "WidgetA"},
+            result={"found": False, "item": "WidgetA"},
+            latency_ms=-1,
+        )

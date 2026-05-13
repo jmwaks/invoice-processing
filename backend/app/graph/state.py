@@ -1,9 +1,9 @@
 from __future__ import annotations
 
 import datetime as dt
-from typing import Any, Literal
+from typing import Annotated, Any, Literal
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 class LineItem(BaseModel):
@@ -74,9 +74,9 @@ class VendorLookupResult(BaseModel):
 
 class ToolCall(BaseModel):
     tool: Literal["lookup_inventory", "lookup_vendor", "recompute_totals"]
-    arguments: dict[str, Any]
-    result: dict[str, Any]
-    latency_ms: int
+    arguments: dict[str, object]
+    result: dict[str, object]
+    latency_ms: Annotated[int, Field(ge=0)]
 
 
 class ValidationReport(BaseModel):
