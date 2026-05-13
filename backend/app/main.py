@@ -19,22 +19,24 @@ _SEED_PATH = Path(__file__).parent / "db" / "seed.yaml"
 
 
 def _format_summary(final: dict[str, Any]) -> str:
-    decision: dict[str, Any] | None = final.get("decision")
-    receipt: dict[str, Any] | None = final.get("payment_receipt")
-    inv: dict[str, Any] | None = final.get("invoice")
-    vendor = inv.get("vendor") if inv is not None else None
-    total = inv.get("total") if inv is not None else None
+    # LangGraph returns a dict whose values are Pydantic models (decision, invoice)
+    # or plain dicts (payment_receipt). Use attribute access for the models.
+    decision = final.get("decision")
+    receipt = final.get("payment_receipt")
+    inv = final.get("invoice")
+    vendor = inv.vendor if inv is not None else None
+    total = inv.total if inv is not None else None
     lines = [
         f"Run:        {final.get('run_id')}",
         f"File:       {final.get('source_path')}",
         f"Vendor:     {vendor}",
         f"Amount:     ${total}" if total is not None else "Amount:     -",
-        f"Outcome:    {decision['outcome'] if decision else final.get('error', 'unknown')}",
+        f"Outcome:    {decision.outcome if decision else final.get('error', 'unknown')}",
     ]
     if decision:
-        lines.append(f"Rules:      {', '.join(decision['rules_applied']) or '-'}")
+        lines.append(f"Rules:      {', '.join(decision.rules_applied) or '-'}")
         lines.append("Rationale:")
-        for line in str(decision.get("rationale", "")).splitlines():
+        for line in decision.rationale.splitlines():
             lines.append(f"  {line}")
     if receipt:
         lines.append(f"Receipt:    {receipt['transaction_id']} at {receipt['paid_at']}")
