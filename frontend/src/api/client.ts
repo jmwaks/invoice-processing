@@ -1,4 +1,4 @@
-import type { InvoiceState } from "../types/state.ts";
+import type { InvoiceState, InvoiceData } from "../types/state.ts";
 
 export async function uploadInvoice(file: File): Promise<{ run_id: string }> {
   const fd = new FormData();
@@ -19,6 +19,7 @@ export async function getInventory(): Promise<{
 
 export async function listRuns(): Promise<Array<{
   run_id: string;
+  parent_run_id: string | null;
   source_path: string;
   invoice_number: string | null;
   vendor: string | null;
@@ -46,5 +47,18 @@ export async function getSource(runId: string): Promise<{ text: string; format: 
 export async function runBatch(): Promise<{ run_ids: string[]; total: number }> {
   const resp = await fetch("/api/runs/batch", { method: "POST" });
   if (!resp.ok) throw new Error("batch failed");
+  return resp.json();
+}
+
+export async function retryRun(
+  runId: string,
+  invoice: InvoiceData,
+): Promise<{ run_id: string }> {
+  const resp = await fetch(`/api/runs/${runId}/retry`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ invoice }),
+  });
+  if (!resp.ok) throw new Error(`retry failed: ${resp.status}`);
   return resp.json();
 }

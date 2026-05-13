@@ -82,6 +82,7 @@ export interface Decision {
 
 export interface InvoiceState {
   run_id: string;
+  parent_run_id: string | null;
   source_path: string;
   file_format: "txt" | "json" | "csv" | "xml" | "pdf" | "email";
   invoice: InvoiceData | null;
