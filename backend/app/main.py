@@ -46,6 +46,13 @@ def _build_runtime(settings: Any) -> tuple[GrokClient, Any, set[str]]:
     db = settings.invoice_processing_db_path
     if not db.exists():
         init_db(db, seed_path=_SEED_PATH, reset=True)
+    if not settings.xai_api_key:
+        print(
+            "error: XAI_API_KEY is not set. Add it to backend/.env "
+            "(see backend/.env.example) before running the CLI.",
+            file=sys.stderr,
+        )
+        sys.exit(2)
     llm = GrokClient(
         api_key=settings.xai_api_key,
         base_url=settings.xai_base_url,
