@@ -61,6 +61,17 @@ def _check_dates(inv: InvoiceData) -> list[ValidationIssue]:
     return []
 
 
+def _check_future_date(inv: InvoiceData, today: dt.date) -> list[ValidationIssue]:
+    if inv.date is None or inv.date <= today:
+        return []
+    days = (inv.date - today).days
+    return [ValidationIssue(
+        kind="future_date",
+        detail=f"invoice date {inv.date} is {days} day(s) in the future (today is {today})",
+        severity="warn",
+    )]
+
+
 def _check_currency(inv: InvoiceData) -> list[ValidationIssue]:
     if not inv.currency or inv.currency.upper() == EXPECTED_CURRENCY:
         return []

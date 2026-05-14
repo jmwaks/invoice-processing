@@ -444,6 +444,39 @@ def test_duplicate_invoice_handles_missing_prior_log_gracefully(tmp_path: Path):
     assert "duplicate_detected_retroactive_skipped" in event_kinds
 
 
+import datetime as dt
+
+from app.agents.validate import _check_future_date
+
+
+def test_check_future_date_empty_when_date_none():
+    inv = _inv(date=None)
+    assert _check_future_date(inv, dt.date(2026, 5, 13)) == []
+
+
+def test_check_future_date_empty_when_date_equals_today():
+    inv = _inv(date=dt.date(2026, 5, 13))
+    assert _check_future_date(inv, dt.date(2026, 5, 13)) == []
+
+
+def test_check_future_date_empty_when_date_in_past():
+    """The INV-1006 case: invoice date is in the past relative to today."""
+    inv = _inv(date=dt.date(2026, 1, 25))
+    assert _check_future_date(inv, dt.date(2026, 5, 13)) == []
+
+
+def test_check_future_date_emits_warn_when_date_in_future():
+    inv = _inv(date=dt.date(2026, 5, 23))
+    issues = _check_future_date(inv, dt.date(2026, 5, 13))
+    assert len(issues) == 1
+    issue = issues[0]
+    assert issue.kind == "future_date"
+    assert issue.severity == "warn"
+    assert "2026-05-23" in issue.detail
+    assert "2026-05-13" in issue.detail
+    assert "10" in issue.detail  # day count
+
+
 def test_duplicate_invoice_retroactive_write_io_error_does_not_crash(
     tmp_path: Path, monkeypatch
 ):
