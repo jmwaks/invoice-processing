@@ -5,6 +5,7 @@ from pathlib import Path
 
 from pydantic import BaseModel
 
+from app.agents.homoglyph_check import detect_homoglyphs
 from app.graph.state import InvoiceData, InvoiceState, SuspicionSignal
 from app.llm.grok_client import GrokClient
 from app.logging_.event_emitter import EventEmitter
@@ -34,6 +35,10 @@ Rules:
   * round-number totals on otherwise odd line items
   * generic or alarming vendor names
   * unknown / made-up looking item names
+  * homoglyph corruption: invoice numbers or dates where letters substitute
+    for digits (O<->0, l<->1, I<->1, B<->8, S<->5, Z<->2), or the literal
+    word "INVOICE" mangled (e.g. "INV0ICE"). Emit kind='homoglyph_corruption'
+    with text_match set to the exact corrupted token from the source.
 - For each suspicion signal, when possible, set `text_match` to the EXACT verbatim
   phrase from the source that triggered the signal (e.g. "wire transfer required
   within 24 hours"). The phrase must appear in the source character-for-character.
@@ -98,6 +103,16 @@ def run_ingest(state: InvoiceState, *, llm: GrokClient, emitter: EventEmitter) -
     state.invoice = InvoiceData(**parsed.invoice.model_dump())
     state.invoice.raw_text = loaded.text
     state.suspicion_signals = parsed.suspicion_signals
+    # Deterministic floor: ensure obvious homoglyph corruption is always flagged,
+    # even if the LLM did not catch it. Dedup against signals the LLM already produced
+    # so we do not double-emit the same text_match.
+    existing_matches = {s.text_match for s in state.suspicion_signals if s.text_match}
+    for sig in detect_homoglyphs(state.invoice):
+        if sig.text_match in existing_matches:
+            continue
+        state.suspicion_signals.append(sig)
+        if sig.text_match is not None:
+            existing_matches.add(sig.text_match)
     state.extraction_confidence = parsed.extraction_confidence
     emitter.emit("node.complete", node="ingest", output={
         "vendor": state.invoice.vendor,

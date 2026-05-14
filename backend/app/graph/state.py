@@ -34,6 +34,7 @@ class SuspicionSignal(BaseModel):
         "round_number",
         "unknown_vendor_pattern",
         "wire_transfer_demand",
+        "homoglyph_corruption",
         "other",
     ]
     detail: str

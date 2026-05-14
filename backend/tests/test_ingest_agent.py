@@ -111,3 +111,52 @@ def test_ingest_passes_text_match_through_from_llm(monkeypatch, tmp_path):
 
     assert len(out.suspicion_signals) == 1
     assert out.suspicion_signals[0].text_match == "wire transfer required within 24 hours"
+
+
+def test_homoglyph_post_check_emits_signal_even_when_llm_misses_it(tmp_path: Path) -> None:
+    """Layer B is the floor: even if the LLM returns no suspicion_signals,
+    the deterministic post-check must add one for an obviously corrupted invoice."""
+    from unittest.mock import MagicMock
+    from app.agents.ingest import IngestResponse, run_ingest
+    from app.graph.state import InvoiceData, InvoiceState, LineItem
+    from app.llm.grok_client import CallMeta
+    from app.logging_.event_emitter import EventEmitter
+
+    raw = (
+        "INV0ICE\n"
+        "Vendor: Atlas Industrial Supply\n"
+        "Invoice Number: INV-9OO1\n"
+        "Date: 2026-O2-O3\nDue Date: 2026-03-03\n"
+        "Items:\n  Widget A    qty: 5    unit price: $250\nTotal: $1,250\n"
+    )
+    source = tmp_path / "invoice_9001.txt"
+    source.write_text(raw)
+
+    fake_llm = MagicMock()
+    fake_llm.structured_complete.return_value = (
+        IngestResponse(
+            invoice=InvoiceData(
+                invoice_number="INV-9OO1",
+                vendor="Atlas Industrial Supply",
+                date=None, due_date=None,
+                line_items=[LineItem(item="Widget A", quantity=5, unit_price=250.0)],
+                subtotal=None, tax_amount=None, total=1250.0,
+                currency="USD", payment_terms="Net 30",
+                raw_text=raw,
+            ),
+            suspicion_signals=[],
+            extraction_confidence=0.9,
+        ),
+        CallMeta(tokens_in=100, tokens_out=50, latency_ms=120, model="stub"),
+    )
+
+    state = InvoiceState(
+        run_id="r", source_path=str(source), file_format="txt",
+    )
+    emitter = EventEmitter("r", state.events, tmp_path / "logs")
+    out = run_ingest(state, llm=fake_llm, emitter=emitter)
+
+    kinds = [s.kind for s in out.suspicion_signals]
+    assert "homoglyph_corruption" in kinds, (
+        f"expected post-check to emit homoglyph_corruption, got {kinds}"
+    )
