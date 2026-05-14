@@ -1,7 +1,8 @@
 from unittest.mock import MagicMock
 
 import httpx
-from openai import RateLimitError
+import pytest
+from openai import APIStatusError, RateLimitError
 from pydantic import BaseModel
 
 from app.llm.grok_client import GrokClient
@@ -15,6 +16,14 @@ def _rate_limit_error(retry_after: str | None = None) -> RateLimitError:
         request=httpx.Request("POST", "https://api.x.ai/v1/chat/completions"),
     )
     return RateLimitError(message="capacity exhausted", response=response, body=None)
+
+
+def _api_status_error(status_code: int) -> APIStatusError:
+    response = httpx.Response(
+        status_code,
+        request=httpx.Request("POST", "https://api.x.ai/v1/chat/completions"),
+    )
+    return APIStatusError(message=f"http {status_code}", response=response, body=None)
 
 
 class Toy(BaseModel):
@@ -64,7 +73,6 @@ def test_grok_client_retries_on_validation_error_then_succeeds():
 
 def test_grok_client_raises_when_retries_exhausted():
     """Both responses invalid — should raise ValidationError after max_retries."""
-    import pytest
     from pydantic import ValidationError
     mock_sdk = MagicMock()
     bad_resp = MagicMock()
@@ -119,3 +127,18 @@ def test_retries_honor_retry_after_header(monkeypatch):
     client.structured_complete(system="s", user="u", schema=Toy)
 
     assert sleeps == [2.0]  # exact header value used, jitter NOT applied
+
+
+def test_503_retries_then_raises_unavailable(monkeypatch):
+    """All 3 grok-4 attempts return 503. Fallback disabled. Assert LLMUnavailableError."""
+    monkeypatch.setattr("app.llm.grok_client.time.sleep", lambda s: None)
+    monkeypatch.setattr("app.llm.grok_client.random.uniform", lambda a, b: 0.0)
+
+    mock_sdk = MagicMock()
+    mock_sdk.chat.completions.create.side_effect = [_api_status_error(503)] * 3
+
+    from app.llm.grok_client import LLMUnavailableError
+    client = GrokClient(model="grok-4", fallback_model="", sdk=mock_sdk)
+    with pytest.raises(LLMUnavailableError):
+        client.structured_complete(system="s", user="u", schema=Toy)
+    assert mock_sdk.chat.completions.create.call_count == 3

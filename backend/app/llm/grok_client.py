@@ -7,7 +7,13 @@ from dataclasses import dataclass
 from time import perf_counter
 from typing import TypeVar, cast
 
-from openai import OpenAI, RateLimitError
+from openai import (
+    APIConnectionError,
+    APIStatusError,
+    APITimeoutError,
+    OpenAI,
+    RateLimitError,
+)
 from pydantic import BaseModel, ValidationError
 
 T = TypeVar("T", bound=BaseModel)
@@ -78,7 +84,7 @@ class GrokClient:
         schema: type[T],
         max_retries: int,
     ) -> tuple[T, CallMeta]:
-        """grok-4 retry loop. Retries RateLimitError; raises LLMUnavailableError on exhaustion."""
+        """grok-4 retry loop. Retries transient errors; raises typed exceptions otherwise."""
         last_exc: Exception | None = None
         for attempt in range(1, _MAX_ATTEMPTS + 1):
             try:
@@ -89,7 +95,18 @@ class GrokClient:
                     schema=schema,
                     max_retries=max_retries,
                 )
-            except RateLimitError as e:
+            except (
+                RateLimitError,
+                APIConnectionError,
+                APITimeoutError,
+            ) as e:
+                last_exc = e
+                if attempt == _MAX_ATTEMPTS:
+                    break
+                time.sleep(self._retry_delay(attempt, e))
+            except APIStatusError as e:
+                if e.status_code < 500:
+                    raise
                 last_exc = e
                 if attempt == _MAX_ATTEMPTS:
                     break
