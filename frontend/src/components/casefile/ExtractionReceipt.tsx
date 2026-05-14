@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useLocation } from "wouter";
 import { retryRun } from "../../api/client.ts";
-import { hasErrors, invoicesEqual, validateDraft, type FieldKey } from "../../lib/invoiceValidation.ts";
+import { hasErrors, invoicesEqual, parseNumber, validateDraft, type FieldKey } from "../../lib/invoiceValidation.ts";
 import type { InvoiceData } from "../../types/state.ts";
 import { RotateCcw } from "../common/Icons.tsx";
 
@@ -101,7 +101,7 @@ export function ExtractionReceipt({
               />
               <FieldInput
                 value={it.unit_price === null ? "" : String(it.unit_price)}
-                onChange={(v) => setItemField(i, "unit_price", v === "" ? null : parseFloat(v))}
+                onChange={(v) => setItemField(i, "unit_price", parseNumber(v))}
                 placeholder="0.00"
                 error={errors[`items.${i}.unit_price` as FieldKey]}
                 mono
@@ -114,7 +114,8 @@ export function ExtractionReceipt({
         <Field
           label="Total"
           value={draft.total === null ? "" : String(draft.total)}
-          onChange={(v) => setField("total", v === "" ? null : parseFloat(v))}
+          onChange={(v) => setField("total", parseNumber(v))}
+          placeholder="0.00"
           error={errors.total}
           warning={warnings.total}
           mono
