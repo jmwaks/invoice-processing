@@ -122,6 +122,20 @@ Patterns from running 10 bundles → 11 commits via subagent-driven-development:
 
 When a later event needs to amend a prior record without mutating its append-only event log, write to a sidecar (`decision_updates.jsonl`) and compose at read time via an `effective_outcome`-style helper. Avoids breaking replay semantics on the source log. The composer reads the sidecar linearly and the latest matching row wins. Document the chronological-latest-wins semantics in the composer docstring — future maintainers will assume hash-map semantics otherwise.
 
+## "Resilience lives in X" specs need to enumerate X's bypassers (2026-05-13, grok-resilience)
+
+The spec for adding retry+fallback to `GrokClient.structured_complete` said "All resilience lives in `GrokClient.structured_complete`. Agents are unchanged." Two things slipped past:
+
+- **`run_ingest` and `_run_critique` wrap `structured_complete` in a broad `except Exception` that swallows typed exceptions.** Caught during implementation: the API layer's `_run_graph` never saw `LLMUnavailableError` because the agent-layer caught it first and converted to `state.error = "unprocessable: ..."`. Fix: add `except (LLMUnavailableError, LLMConfigurationError): raise` before the broad except at each LLM call site. The implementer caught this in-flight; the spec did not anticipate it.
+- **`_run_investigate` bypasses `structured_complete` entirely** — it calls `run_tool_loop(sdk=llm.sdk, ...)` directly, which calls `sdk.chat.completions.create` raw. So the new resilience does nothing for the investigate phase, and the existing broad except swallows 429s silently — the function returns `[]`, the graph continues to propose/critique/finalize on a *missing* investigation, and the user sees "approved" or "rejected" based on no investigation context. Caught at final code review (not at spec time, not at implementation time). Fix: add OpenAI → typed-exception mapping in `_run_investigate`'s except chain.
+
+Rules for the next spec that claims "X owns concern Y":
+
+- **Grep for every call to X *and* every call to the thing X wraps.** "Resilience lives in `structured_complete`" → grep for `sdk.chat.completions.create` repo-wide; any hit that bypasses `structured_complete` is also in scope for resilience.
+- **Grep for `except Exception` on the call path to X.** Broad excepts upstream of X will swallow whatever typed exceptions X raises. Either narrow them or the new typed exceptions are dead.
+- **In the spec's "Non-Goals" section, list call sites that bypass the abstraction.** Forces the reader to acknowledge them and decide explicitly to leave them out, rather than discovering the gap post-implementation. Even a one-line "`_run_investigate` uses `run_tool_loop` directly; not addressed in this scope" would have surfaced it during brainstorming.
+- **Final reviewer should grep for the abstraction's bypasses, not just diff the implementation.** The final-review prompt explicitly listed deviation points but didn't say "look for code that bypasses the resilience layer entirely." The opus reviewer found it anyway; a less thorough reviewer might not have.
+
 ## Subagent "helpful improvement" defects (2026-05-13, extraction-tax session)
 
 Even cheap/Haiku implementers will *interpret* prompts and add things you didn't ask for. Two failure modes hit in a 6-task plan, both during fix-loops where the implementer felt licensed to reason:

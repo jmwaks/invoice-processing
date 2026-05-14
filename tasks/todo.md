@@ -82,4 +82,5 @@
 - Spec: `docs/superpowers/specs/2026-05-13-grok-resilience-design.md`
 - Plan: `docs/superpowers/plans/2026-05-13-grok-resilience.md`
 - 9 new unit tests in `test_grok_client.py`, 1 new integration test in `test_api.py`
+- Post-review follow-up: `_run_investigate` in `approve.py` bypassed `structured_complete` via direct `run_tool_loop` call; same OpenAI → typed exception mapping added there with 2 new tests. Final suite: 164 passed, 26 skipped.
 
