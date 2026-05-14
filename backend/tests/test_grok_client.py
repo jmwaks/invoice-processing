@@ -221,3 +221,18 @@ def test_falls_back_to_grok3_after_exhaustion(monkeypatch):
     system_msg = fallback_call.kwargs["messages"][0]["content"]
     assert system_msg.startswith("Today's date is ")
     assert "extract things" in system_msg
+
+
+def test_fallback_disabled_raises_when_empty(monkeypatch):
+    """Empty fallback_model means no grok-3 attempt; LLMUnavailableError after 3 grok-4 fails."""
+    monkeypatch.setattr("app.llm.grok_client.time.sleep", lambda s: None)
+    monkeypatch.setattr("app.llm.grok_client.random.uniform", lambda a, b: 0.0)
+
+    mock_sdk = MagicMock()
+    mock_sdk.chat.completions.create.side_effect = [_rate_limit_error()] * 3
+
+    from app.llm.grok_client import LLMUnavailableError
+    client = GrokClient(model="grok-4", fallback_model="", sdk=mock_sdk)
+    with pytest.raises(LLMUnavailableError):
+        client.structured_complete(system="s", user="u", schema=Toy)
+    assert mock_sdk.chat.completions.create.call_count == 3
