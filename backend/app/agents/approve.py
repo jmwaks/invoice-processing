@@ -4,6 +4,16 @@ import json
 import logging
 from pathlib import Path
 
+from openai import (
+    APIConnectionError,
+    APIStatusError,
+    APITimeoutError,
+    AuthenticationError,
+    NotFoundError,
+    PermissionDeniedError,
+    RateLimitError,
+)
+
 from app.config import get_settings
 from app.graph.state import (
     Critique,
@@ -179,6 +189,18 @@ def _run_investigate(
         )
     except (LLMUnavailableError, LLMConfigurationError):
         raise
+    except AuthenticationError as e:
+        raise LLMConfigurationError("Grok API key invalid or missing.") from e
+    except PermissionDeniedError as e:
+        raise LLMConfigurationError("Grok API access denied.") from e
+    except NotFoundError as e:
+        raise LLMConfigurationError("Configured Grok model not found.") from e
+    except (RateLimitError, APIConnectionError, APITimeoutError) as e:
+        raise LLMUnavailableError() from e
+    except APIStatusError as e:
+        if e.status_code < 500:
+            raise
+        raise LLMUnavailableError() from e
     except Exception as e:
         _logger.exception("approve: investigate pass failed")
         emitter.emit("approve.investigate.complete", node="approve", output={"error": str(e)})

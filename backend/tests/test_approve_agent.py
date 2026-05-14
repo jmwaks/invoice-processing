@@ -1,8 +1,12 @@
 from pathlib import Path
 from unittest.mock import MagicMock
 
+import httpx
 import pytest
+from openai import AuthenticationError, RateLimitError
 
+from app.agents import approve as approve_mod
+from app.agents.approve import _run_investigate as _real_run_investigate
 from app.agents.approve import route_after_approve, run_approve
 from app.graph.state import (
     Critique,
@@ -210,3 +214,61 @@ def test_approve_captures_tool_calls_on_decision(monkeypatch, tmp_path):
     assert state.decision is not None
     assert len(state.decision.tool_calls) == 1
     assert state.decision.tool_calls[0].tool == "lookup_inventory"
+
+
+def _make_rate_limit_error() -> RateLimitError:
+    response = httpx.Response(
+        429,
+        request=httpx.Request("POST", "https://api.x.ai/v1/chat/completions"),
+    )
+    return RateLimitError(message="capacity exhausted", response=response, body=None)
+
+
+def _make_auth_error() -> AuthenticationError:
+    response = httpx.Response(
+        401,
+        request=httpx.Request("POST", "https://api.x.ai/v1/chat/completions"),
+    )
+    return AuthenticationError(message="invalid api key", response=response, body=None)
+
+
+def test_investigate_surfaces_rate_limit_as_llm_unavailable(monkeypatch, tmp_path):
+    """RateLimitError from run_tool_loop must propagate as LLMUnavailableError."""
+    from app.llm.grok_client import GrokClient, LLMUnavailableError
+
+    monkeypatch.setattr(
+        approve_mod, "run_tool_loop", MagicMock(side_effect=_make_rate_limit_error())
+    )
+    # Restore the real _run_investigate so the autouse stub doesn't swallow the call.
+    monkeypatch.setattr(approve_mod, "_run_investigate", _real_run_investigate)
+
+    mock_sdk = MagicMock()
+    client = GrokClient(model="grok-4", fallback_model="grok-3", sdk=mock_sdk)
+    emitter = EventEmitter("r", [], tmp_path / "logs")
+
+    with pytest.raises(LLMUnavailableError):
+        approve_mod._run_investigate(
+            llm=client, emitter=emitter, context="x", db_path=tmp_path / "db.sqlite"
+        )
+
+
+def test_investigate_surfaces_auth_error_as_llm_configuration(monkeypatch, tmp_path):
+    """AuthenticationError from run_tool_loop must propagate as LLMConfigurationError."""
+    from app.llm.grok_client import GrokClient, LLMConfigurationError
+
+    monkeypatch.setattr(
+        approve_mod, "run_tool_loop", MagicMock(side_effect=_make_auth_error())
+    )
+    # Restore the real _run_investigate so the autouse stub doesn't swallow the call.
+    monkeypatch.setattr(approve_mod, "_run_investigate", _real_run_investigate)
+
+    mock_sdk = MagicMock()
+    client = GrokClient(model="grok-4", fallback_model="grok-3", sdk=mock_sdk)
+    emitter = EventEmitter("r", [], tmp_path / "logs")
+
+    with pytest.raises(LLMConfigurationError) as exc_info:
+        approve_mod._run_investigate(
+            llm=client, emitter=emitter, context="x", db_path=tmp_path / "db.sqlite"
+        )
+
+    assert "key" in exc_info.value.user_message.lower()
