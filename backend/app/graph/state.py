@@ -56,6 +56,7 @@ class ValidationIssue(BaseModel):
         "total_math_error",
         "past_due_date",
         "currency_mismatch",
+        "duplicate_invoice",
     ]
     item: str | None = None
     detail: str

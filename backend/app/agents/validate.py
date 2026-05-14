@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from app.db.paid_invoices import lookup_paid
 from app.graph.state import (
     InventoryLookupResult,
     InvoiceData,
@@ -65,6 +66,25 @@ def _check_currency(inv: InvoiceData) -> list[ValidationIssue]:
         kind="currency_mismatch",
         detail=f"invoice currency {inv.currency} != expected {EXPECTED_CURRENCY} "
                f"(payment pipeline has no FX support)",
+        severity="warn",
+    )]
+
+
+def _check_duplicate_invoice(inv: InvoiceData, db_path: Path) -> list[ValidationIssue]:
+    if not inv.invoice_number or not inv.vendor or not inv.vendor.strip():
+        return []
+    prior = lookup_paid(
+        vendor=inv.vendor, invoice_number=inv.invoice_number, db_path=db_path,
+    )
+    if prior is None:
+        return []
+    return [ValidationIssue(
+        kind="duplicate_invoice",
+        detail=(
+            f"already paid in run {prior.run_id} for ${prior.amount:.2f} "
+            f"on {prior.paid_at:%Y-%m-%d}; this submission is "
+            f"${(inv.total or 0.0):.2f}"
+        ),
         severity="warn",
     )]
 
@@ -181,6 +201,7 @@ def run_validate(state: InvoiceState, *, db_path: Path, emitter: EventEmitter) -
     issues.extend(_check_dates(inv))
     issues.extend(_check_total_math(inv))
     issues.extend(_check_currency(inv))
+    issues.extend(_check_duplicate_invoice(inv, db_path))
     inv_issues, lookups = _check_line_items_against_inventory(inv, db_path, emitter)
     issues.extend(inv_issues)
     vendor_issues, vendor_result = _check_vendor(inv, db_path, emitter)

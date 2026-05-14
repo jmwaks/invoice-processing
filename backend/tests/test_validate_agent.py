@@ -247,3 +247,74 @@ def test_price_mismatch_fires_at_exact_tolerance_boundary(tmp_path: Path):
     out = run_validate(state, db_path=db, emitter=emitter)
     kinds = {i.kind for i in out.validation.issues}
     assert "price_mismatch" in kinds
+
+
+def test_duplicate_invoice_warns_when_registry_has_prior(tmp_path: Path):
+    import datetime as dt
+    from app.db.paid_invoices import PaidInvoiceRecord, record_paid
+    from app.db.init_db import normalize_vendor
+
+    db = _seeded(tmp_path)
+    record_paid(
+        PaidInvoiceRecord(
+            vendor_normalized=normalize_vendor("Widgets Inc."),
+            invoice_number="INV-1001",
+            run_id="prior-run",
+            vendor_display="Widgets Inc.",
+            amount=5000.0,
+            paid_at=dt.datetime(2026, 1, 16, 12, 0, tzinfo=dt.timezone.utc),
+        ),
+        db_path=db,
+    )
+    state = _state(_inv(
+        invoice_number="INV-1001", vendor="Widgets Inc.",
+        line_items=[LineItem(item="WidgetA", quantity=5, unit_price=250.0)],
+        total=1250.0,
+    ))
+    emitter = EventEmitter("r", state.events, tmp_path / "logs")
+    out = run_validate(state, db_path=db, emitter=emitter)
+    by_kind = {i.kind: i for i in out.validation.issues}
+    assert "duplicate_invoice" in by_kind
+    assert by_kind["duplicate_invoice"].severity == "warn"
+    assert "prior-run" in by_kind["duplicate_invoice"].detail
+
+
+def test_duplicate_invoice_does_not_fire_for_different_vendor(tmp_path: Path):
+    import datetime as dt
+    from app.db.paid_invoices import PaidInvoiceRecord, record_paid
+    from app.db.init_db import normalize_vendor
+
+    db = _seeded(tmp_path)
+    record_paid(
+        PaidInvoiceRecord(
+            vendor_normalized=normalize_vendor("Vendor A"),
+            invoice_number="INV-001",
+            run_id="r-a", vendor_display="Vendor A",
+            amount=100.0,
+            paid_at=dt.datetime(2026, 1, 1, tzinfo=dt.timezone.utc),
+        ),
+        db_path=db,
+    )
+    state = _state(_inv(
+        invoice_number="INV-001", vendor="Widgets Inc.",
+        line_items=[LineItem(item="WidgetA", quantity=1, unit_price=250.0)],
+        total=250.0,
+    ))
+    emitter = EventEmitter("r", state.events, tmp_path / "logs")
+    out = run_validate(state, db_path=db, emitter=emitter)
+    kinds = {i.kind for i in out.validation.issues}
+    assert "duplicate_invoice" not in kinds
+
+
+def test_duplicate_check_skipped_when_vendor_missing(tmp_path: Path):
+    db = _seeded(tmp_path)
+    state = _state(_inv(
+        invoice_number="INV-1001", vendor=None,
+        line_items=[LineItem(item="WidgetA", quantity=1, unit_price=250.0)],
+        total=250.0,
+    ))
+    emitter = EventEmitter("r", state.events, tmp_path / "logs")
+    out = run_validate(state, db_path=db, emitter=emitter)
+    kinds = {i.kind for i in out.validation.issues}
+    assert "missing_vendor" in kinds
+    assert "duplicate_invoice" not in kinds
