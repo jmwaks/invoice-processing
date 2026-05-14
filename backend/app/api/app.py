@@ -29,7 +29,10 @@ def create_app(
         # but app construction and tests that mock the LLM proceed safely.
         api_key = settings.xai_api_key or "not-configured"
         llm = GrokClient(
-            api_key=api_key, base_url=settings.xai_base_url, model=settings.xai_model,
+            api_key=api_key,
+            base_url=settings.xai_base_url,
+            model=settings.xai_model,
+            fallback_model=settings.xai_fallback_model,
         )
     registry = RunRegistry(log_dir=log_dir)
     paid: set[str] = set()
