@@ -232,3 +232,18 @@ def test_total_math_error_detects_subtotal_plus_tax_mismatch(tmp_path: Path):
     out = run_validate(state, db_path=db, emitter=emitter)
     kinds = {i.kind for i in out.validation.issues}
     assert "total_math_error" in kinds
+
+
+def test_price_mismatch_fires_at_exact_tolerance_boundary(tmp_path: Path):
+    # INV-9004's exact numbers: 4 × $225 vs catalog $250 = drift exactly 10%.
+    # `drift > PRICE_TOLERANCE` excludes this boundary; `drift >= PRICE_TOLERANCE`
+    # catches it. Semantic intent of `PRICE_TOLERANCE = 0.10` is "10% or more".
+    db = _seeded(tmp_path)
+    state = _state(_inv(
+        line_items=[LineItem(item="WidgetA", quantity=4, unit_price=225.0)],
+        total=900.0,
+    ))
+    emitter = EventEmitter("r", state.events, tmp_path / "logs")
+    out = run_validate(state, db_path=db, emitter=emitter)
+    kinds = {i.kind for i in out.validation.issues}
+    assert "price_mismatch" in kinds

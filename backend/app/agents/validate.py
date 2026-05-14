@@ -142,7 +142,7 @@ def _check_line_items_against_inventory(
             continue
         if li.unit_price is not None and lookup.unit_price and lookup.unit_price > 0:
             drift = abs(li.unit_price - lookup.unit_price) / lookup.unit_price
-            if drift > PRICE_TOLERANCE:
+            if drift >= PRICE_TOLERANCE:
                 issues.append(ValidationIssue(
                     kind="price_mismatch", item=li.item,
                     detail=f"invoice ${li.unit_price:.2f} vs catalog ${lookup.unit_price:.2f}",
