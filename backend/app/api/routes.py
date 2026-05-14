@@ -83,8 +83,9 @@ def build_router(*, registry: RunRegistry, db_path: Path, graph: Any) -> APIRout
         if run is None:
             raise HTTPException(404)
         payload = run.state.model_dump(mode="json")
+        base = run.state.decision.outcome if run.state.decision is not None else None
         payload["effective_outcome"] = effective_outcome(
-            run_id, log_dir=registry.log_dir,
+            run_id, log_dir=registry.log_dir, base_outcome=base,
         ).model_dump(mode="json")
         return payload
 

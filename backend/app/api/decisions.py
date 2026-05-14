@@ -51,8 +51,19 @@ def _latest_override(sidecar_path: Path, run_id: str) -> dict[str, object] | Non
     return latest
 
 
-def effective_outcome(run_id: str, *, log_dir: Path) -> EffectiveOutcome:
-    base = _decision_from_event_log(log_dir / f"{run_id}.jsonl")
+def effective_outcome(
+    run_id: str, *, log_dir: Path, base_outcome: Outcome | None = None,
+) -> EffectiveOutcome:
+    """Returns the effective outcome of a run, applying the latest decision_updates.jsonl
+    override on top of the recorded Decision.
+
+    `base_outcome` is the in-memory decision outcome if available (preferred when set);
+    if None, falls back to reading approve.decision from the run's jsonl event log.
+    """
+    if base_outcome is not None:
+        base = base_outcome
+    else:
+        base = _decision_from_event_log(log_dir / f"{run_id}.jsonl")
     override = _latest_override(log_dir / "decision_updates.jsonl", run_id)
     if override is None:
         return EffectiveOutcome(outcome=base)

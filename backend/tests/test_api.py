@@ -149,3 +149,22 @@ def test_get_run_includes_effective_outcome_block(api_client, tmp_path: Path) ->
     assert "overridden_at" in eo
     assert "triggered_by_run_id" in eo
     assert eo["override_reason"] is None
+
+
+def test_effective_outcome_prefers_in_memory_decision_over_event_log(tmp_path: Path) -> None:
+    """When a base_outcome is supplied (the in-memory Decision), the composer
+    must use it instead of re-deriving from the jsonl event log. This avoids
+    'unprocessable' false positives for in-flight runs."""
+    import json
+    from app.api.decisions import effective_outcome
+
+    log_dir = tmp_path
+    run_id = "r1"
+    # NOTE: no approve.decision event in the jsonl (in-flight state).
+    (log_dir / f"{run_id}.jsonl").write_text(
+        json.dumps({"kind": "node.start", "node": "ingest"}) + "\n"
+    )
+    # Caller passes in-memory decision:
+    eo = effective_outcome(run_id, log_dir=log_dir, base_outcome="approved")
+    assert eo.outcome == "approved"
+    assert eo.override_reason is None

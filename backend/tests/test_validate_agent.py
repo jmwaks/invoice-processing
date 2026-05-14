@@ -318,6 +318,8 @@ def test_duplicate_check_skipped_when_vendor_missing(tmp_path: Path):
     kinds = {i.kind for i in out.validation.issues}
     assert "missing_vendor" in kinds
     assert "duplicate_invoice" not in kinds
+    event_kinds = [e.get("kind") for e in state.events]
+    assert "duplicate_check_skipped" in event_kinds
 
 
 def test_duplicate_invoice_writes_retroactive_event_to_prior_log(tmp_path: Path):
@@ -438,5 +440,59 @@ def test_duplicate_invoice_handles_missing_prior_log_gracefully(tmp_path: Path):
     out = run_validate(state, db_path=db, emitter=emitter)
     kinds = {i.kind for i in out.validation.issues}
     assert "duplicate_invoice" in kinds
+    event_kinds = [e.get("kind") for e in state.events]
+    assert "duplicate_detected_retroactive_skipped" in event_kinds
+
+
+def test_duplicate_invoice_retroactive_write_io_error_does_not_crash(
+    tmp_path: Path, monkeypatch
+):
+    """If the retroactive write to the prior jsonl fails, validate must still
+    emit the duplicate_invoice issue and a skipped event — never raise."""
+    import datetime as dt
+    from app.db.paid_invoices import PaidInvoiceRecord, record_paid
+    from app.db.init_db import normalize_vendor
+
+    db = _seeded(tmp_path)
+    log_dir = tmp_path / "logs"
+    log_dir.mkdir()
+    prior_log = log_dir / "prior-run.jsonl"
+    prior_log.write_text("")  # exists, so the if-branch is taken
+    record_paid(
+        PaidInvoiceRecord(
+            vendor_normalized=normalize_vendor("Widgets Inc."),
+            invoice_number="INV-1001", run_id="prior-run",
+            vendor_display="Widgets Inc.", amount=5000.0,
+            paid_at=dt.datetime(2026, 1, 16, tzinfo=dt.timezone.utc),
+        ),
+        db_path=db,
+    )
+
+    # Patch Path.open so any append to the prior log raises OSError.
+    # Only the prior_log path (prior-run.jsonl) in append mode should fail;
+    # everything else (including emitter writes) must work normally.
+    original_open = Path.open
+
+    def _selective_open(self, *args, **kwargs):
+        mode = args[0] if args else kwargs.get("mode", "r")
+        if self.name.endswith("prior-run.jsonl") and "a" in mode:
+            raise OSError("simulated disk full")
+        return original_open(self, *args, **kwargs)
+
+    monkeypatch.setattr(Path, "open", _selective_open)
+
+    state = _state(_inv(
+        invoice_number="INV-1001", vendor="Widgets Inc.",
+        line_items=[LineItem(item="WidgetA", quantity=1, unit_price=250.0)],
+        total=250.0,
+    ))
+    state.run_id = "later-run"
+    emitter = EventEmitter("later-run", state.events, log_dir)
+    # Must not raise:
+    out = run_validate(state, db_path=db, emitter=emitter)
+    # Issue is still emitted on the current run:
+    kinds = {i.kind for i in out.validation.issues}
+    assert "duplicate_invoice" in kinds
+    # Skipped event is emitted:
     event_kinds = [e.get("kind") for e in state.events]
     assert "duplicate_detected_retroactive_skipped" in event_kinds

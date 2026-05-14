@@ -24,8 +24,10 @@ def run_pay(
     invoice_number: str = inv.invoice_number
     vendor: str = inv.vendor
     total: float = inv.total
-    # SQL registry is source of truth; in-memory set is a same-process fast-path.
-    if invoice_number in paid_invoices or lookup_paid(
+    # SQL registry (composite vendor+invoice_number key) is the single source of truth.
+    # The in-memory set is keyed by invoice_number only and would produce false positives
+    # when two different vendors share the same invoice_number, so it is not consulted.
+    if lookup_paid(
         vendor=vendor, invoice_number=invoice_number, db_path=db_path,
     ) is not None:
         emitter.emit("pay.skipped_duplicate", node="pay",

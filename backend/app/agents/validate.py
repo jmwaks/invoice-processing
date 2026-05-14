@@ -75,7 +75,13 @@ def _check_currency(inv: InvoiceData) -> list[ValidationIssue]:
 def _check_duplicate_invoice(
     inv: InvoiceData, db_path: Path, *, state_run_id: str, emitter: EventEmitter,
 ) -> list[ValidationIssue]:
-    if not inv.invoice_number or not inv.vendor or not inv.vendor.strip():
+    if not inv.invoice_number:
+        return []  # no meaningful skip — invoice has bigger problems
+    if not inv.vendor or not inv.vendor.strip():
+        emitter.emit(
+            "duplicate_check_skipped", node="validate",
+            output={"reason": "missing_vendor"},
+        )
         return []
     prior = lookup_paid(
         vendor=inv.vendor, invoice_number=inv.invoice_number, db_path=db_path,
@@ -105,9 +111,6 @@ def _check_duplicate_invoice(
             "later_amount": inv.total or 0.0,
             "later_invoice_number": inv.invoice_number,
         }
-        with prior_log.open("a") as f:
-            f.write(json.dumps(retroactive_event, default=str) + "\n")
-
         sidecar = log_dir / "decision_updates.jsonl"
         sidecar_row = {
             "run_id": prior.run_id,
@@ -118,8 +121,16 @@ def _check_duplicate_invoice(
             "updated_at": now_iso,
             "triggered_by_run_id": state_run_id,
         }
-        with sidecar.open("a") as f:
-            f.write(json.dumps(sidecar_row, default=str) + "\n")
+        try:
+            with prior_log.open("a") as f:
+                f.write(json.dumps(retroactive_event, default=str) + "\n")
+            with sidecar.open("a") as f:
+                f.write(json.dumps(sidecar_row, default=str) + "\n")
+        except OSError as e:
+            emitter.emit(
+                "duplicate_detected_retroactive_skipped", node="validate",
+                output={"prior_run_id": prior.run_id, "reason": f"io_error:{e}"},
+            )
     else:
         emitter.emit(
             "duplicate_detected_retroactive_skipped", node="validate",
