@@ -16,7 +16,12 @@ INV-1014: { outcome: approved }
 INV-1015: { outcome: approved }
 INV-1016: { outcome: rejected, requires: [unknown_item] }
 INV-9001: { outcome: needs_review }
-INV-9002: { outcome: approved }
+INV-9002: { outcome: needs_review, requires: [duplicate_invoice] }
 INV-9003: { outcome: approved, requires: [total_math_error] }
 INV-9004: { outcome: needs_review }
 INV-9005: { outcome: rejected, requires: [qty_exceeds_stock] }
+
+# Outcomes after retroactive flagging — used by integration tests that
+# assert effective_outcome composed via app.api.decisions.
+effective_outcomes:
+  INV-1001: { outcome: needs_review, override_reason: duplicate_detected }
