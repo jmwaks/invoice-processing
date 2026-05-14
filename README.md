@@ -10,7 +10,7 @@ Acme Corp's manual workflow loses $2M/year. This prototype addresses each pain p
 
 | Pain point | What this prototype does |
 |---|---|
-| **30% error rate** | Six classes of error caught automatically (missing vendor, negative quantity, unknown item, out-of-stock, overstock, price drift). The propose → critique → finalize loop catches what a single LLM pass would miss. |
+| **30% error rate** | Eight classes of error caught automatically (missing vendor, negative quantity, unknown item, out-of-stock, overstock, price drift, math error, past due date). The propose → critique → finalize loop catches what a single LLM pass would miss. |
 | **5-day delays** | Each invoice resolves in seconds. The **Run all** button processes the entire sample backlog in 4-way parallel while you watch. |
 | **Frustrated stakeholders** | Every decision carries a written rationale tied to named rules. AP, vendors, and the VP read the same trace. |
 
@@ -60,11 +60,11 @@ The brief specifies this CLI shape:
 python main.py --invoice_path=data/invoices/invoice1.txt
 ```
 
-The equivalent in this project (the module lives at `backend/app/main.py`, run from `backend/`):
+The equivalent in this project (the module lives at `backend/app/main.py`, run from `backend/` with the venv from step 1 activated):
 
 ```bash
 cd backend
-../.venv/bin/python -m app.main --invoice_path=data/invoices/invoice_1001.txt
+python -m app.main --invoice_path=data/invoices/invoice_1001.txt
 ```
 
 Useful flags:
@@ -108,8 +108,6 @@ ingest → validate → approve → pay      (on approve)
 - **Validate** — deterministic SQL checks against `inventory` and approved-vendors tables. Surfaces eight failure modes (missing vendor, negative quantity, unknown item, out-of-stock, overstock, price drift, math error, past due date).
 - **Approve** — investigate phase (tool-using on middle-band cases), then three sequential Grok calls: proposer → adversarial critic → finalizer. During investigate the LLM may call `lookup_inventory`, `lookup_vendor`, or `recompute_totals` via xAI's function-calling API; results land on `Decision.tool_calls` and render in the UI. A rule engine (`backend/app/rules/rules.yaml`) provides hard blocks and gate thresholds; the LLM cannot override hard blocks.
 - **Pay / Log** — mock payment API or structured rejection log, both persisted to the run record.
-
-Full design spec: [`docs/superpowers/specs/2026-05-13-invoice-processing-design.md`](docs/superpowers/specs/2026-05-13-invoice-processing-design.md). UI redesign spec: [`docs/superpowers/specs/2026-05-13-ui-redesign-case-file.md`](docs/superpowers/specs/2026-05-13-ui-redesign-case-file.md).
 
 ---
 
