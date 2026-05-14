@@ -173,6 +173,49 @@ def test_total_math_error_warns(tmp_path: Path):
     assert "total_math_error" in kinds
 
 
+def test_non_usd_currency_warns(tmp_path: Path):
+    db = _seeded(tmp_path)
+    # INV-9004 case: invoice in EUR. The payment pipeline has no FX support and
+    # would pay the numeric amount as USD. Flag for scrutiny.
+    state = _state(_inv(
+        line_items=[LineItem(item="WidgetA", quantity=4, unit_price=225.0)],
+        total=900.0, currency="EUR",
+    ))
+    emitter = EventEmitter("r", state.events, tmp_path / "logs")
+    out = run_validate(state, db_path=db, emitter=emitter)
+    by_kind = {i.kind: i for i in out.validation.issues}
+    assert "currency_mismatch" in by_kind
+    assert by_kind["currency_mismatch"].severity == "warn"
+
+
+def test_usd_currency_does_not_warn(tmp_path: Path):
+    db = _seeded(tmp_path)
+    state = _state(_inv(
+        line_items=[LineItem(item="WidgetA", quantity=1, unit_price=250.0)],
+        total=250.0, currency="USD",
+    ))
+    emitter = EventEmitter("r", state.events, tmp_path / "logs")
+    out = run_validate(state, db_path=db, emitter=emitter)
+    kinds = {i.kind for i in out.validation.issues}
+    assert "currency_mismatch" not in kinds
+
+
+def test_qty_exceeds_stock_aggregates_across_split_lines(tmp_path: Path):
+    db = _seeded(tmp_path)
+    # INV-9005 case: same item split across 49 lines of qty=1, each below stock (15)
+    # individually but aggregate (49) exceeds stock. Per-line check misses; aggregate must catch.
+    state = _state(_inv(
+        line_items=[LineItem(item="WidgetA", quantity=1, unit_price=250.0) for _ in range(49)],
+        total=12250.0,
+    ))
+    emitter = EventEmitter("r", state.events, tmp_path / "logs")
+    out = run_validate(state, db_path=db, emitter=emitter)
+    kinds = [i.kind for i in out.validation.issues]
+    assert "qty_exceeds_stock" in kinds
+    # Should emit exactly one qty_exceeds_stock for WidgetA, not 49.
+    assert kinds.count("qty_exceeds_stock") == 1
+
+
 def test_total_math_error_detects_subtotal_plus_tax_mismatch(tmp_path: Path):
     db = _seeded(tmp_path)
     # INV-9003 case: line items × unit price match subtotal (4 × $250 = $1000),

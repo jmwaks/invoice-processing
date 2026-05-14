@@ -16,6 +16,7 @@ from app.tools.vendor_tool import vendor_lookup
 
 PRICE_TOLERANCE = 0.10  # 10%
 TOTAL_TOLERANCE = 1.00  # $1
+EXPECTED_CURRENCY = "USD"  # payment pipeline assumes USD; flag others for review
 
 
 def _check_required_fields(inv: InvoiceData) -> list[ValidationIssue]:
@@ -57,6 +58,17 @@ def _check_dates(inv: InvoiceData) -> list[ValidationIssue]:
     return []
 
 
+def _check_currency(inv: InvoiceData) -> list[ValidationIssue]:
+    if not inv.currency or inv.currency.upper() == EXPECTED_CURRENCY:
+        return []
+    return [ValidationIssue(
+        kind="currency_mismatch",
+        detail=f"invoice currency {inv.currency} != expected {EXPECTED_CURRENCY} "
+               f"(payment pipeline has no FX support)",
+        severity="warn",
+    )]
+
+
 def _check_total_math(inv: InvoiceData) -> list[ValidationIssue]:
     if inv.total is None or not inv.line_items:
         return []
@@ -88,30 +100,46 @@ def _check_line_items_against_inventory(
 ) -> tuple[list[ValidationIssue], list[InventoryLookupResult]]:
     issues: list[ValidationIssue] = []
     lookups: list[InventoryLookupResult] = []
+
+    # Aggregate positive quantities per item so split-line attacks
+    # (same item across many qty=1 lines) cannot bypass stock checks.
+    qty_by_item: dict[str, int] = {}
+    for li in inv.line_items:
+        if li.quantity > 0:
+            qty_by_item[li.item] = qty_by_item.get(li.item, 0) + li.quantity
+
+    item_lookups: dict[str, InventoryLookupResult] = {}
+
     for li in inv.line_items:
         if li.quantity <= 0:
             continue
-        lookup = inventory_lookup(li.item, db_path=db_path)
-        lookups.append(lookup)
-        emitter.emit("tool.call", node="validate", tool="inventory_lookup",
-                     args={"item": li.item}, result=lookup.model_dump())
-        if not lookup.found:
-            issues.append(ValidationIssue(
-                kind="unknown_item", item=li.item,
-                detail="not in inventory", severity="block",
-            ))
+
+        if li.item not in item_lookups:
+            lookup = inventory_lookup(li.item, db_path=db_path)
+            item_lookups[li.item] = lookup
+            lookups.append(lookup)
+            emitter.emit("tool.call", node="validate", tool="inventory_lookup",
+                         args={"item": li.item}, result=lookup.model_dump())
+            if not lookup.found:
+                issues.append(ValidationIssue(
+                    kind="unknown_item", item=li.item,
+                    detail="not in inventory", severity="block",
+                ))
+            elif lookup.stock == 0:
+                issues.append(ValidationIssue(
+                    kind="out_of_stock", item=li.item,
+                    detail="stock is 0", severity="block",
+                ))
+            elif lookup.stock is not None and qty_by_item[li.item] > lookup.stock:
+                issues.append(ValidationIssue(
+                    kind="qty_exceeds_stock", item=li.item,
+                    detail=f"requested {qty_by_item[li.item]} > stock {lookup.stock}",
+                    severity="block",
+                ))
+
+        lookup = item_lookups[li.item]
+        if not lookup.found or lookup.stock == 0:
             continue
-        if lookup.stock == 0:
-            issues.append(ValidationIssue(
-                kind="out_of_stock", item=li.item,
-                detail="stock is 0", severity="block",
-            ))
-            continue
-        if lookup.stock is not None and li.quantity > lookup.stock:
-            issues.append(ValidationIssue(
-                kind="qty_exceeds_stock", item=li.item,
-                detail=f"requested {li.quantity} > stock {lookup.stock}", severity="block",
-            ))
         if li.unit_price is not None and lookup.unit_price and lookup.unit_price > 0:
             drift = abs(li.unit_price - lookup.unit_price) / lookup.unit_price
             if drift > PRICE_TOLERANCE:
@@ -152,6 +180,7 @@ def run_validate(state: InvoiceState, *, db_path: Path, emitter: EventEmitter) -
     issues.extend(_check_negative_quantities(inv))
     issues.extend(_check_dates(inv))
     issues.extend(_check_total_math(inv))
+    issues.extend(_check_currency(inv))
     inv_issues, lookups = _check_line_items_against_inventory(inv, db_path, emitter)
     issues.extend(inv_issues)
     vendor_issues, vendor_result = _check_vendor(inv, db_path, emitter)
