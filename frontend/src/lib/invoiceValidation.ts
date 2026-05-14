@@ -17,10 +17,6 @@ export interface ValidationResult {
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 
-// Tolerance for money comparisons, in dollars.
-// Matches backend TOTAL_TOLERANCE in backend/app/agents/validate.py.
-export const TOTAL_TOLERANCE = 1.0;
-
 /**
  * Parse a string from a numeric input field.
  * - "" → null (blank input)
