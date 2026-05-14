@@ -29,3 +29,26 @@ def test_replay_summarises_final_state(tmp_path: Path, capsys):
     assert summary["decision"]["outcome"] == "approved"
     out = capsys.readouterr().out
     assert "approved" in out
+
+
+def test_replay_tolerates_duplicate_detected_retroactive_event(tmp_path: Path) -> None:
+    run_id = "test-run"
+    log = tmp_path / f"{run_id}.jsonl"
+    log.write_text(
+        json.dumps({"kind": "node.start", "node": "ingest"}) + "\n"
+        + json.dumps({
+            "kind": "duplicate_detected_retroactive",
+            "ts": "2026-05-13T12:00:00Z",
+            "later_run_id": "later",
+            "later_amount": 1250.0,
+            "later_invoice_number": "INV-1001",
+        }) + "\n"
+        + json.dumps({
+            "kind": "approve.decision",
+            "output": {"outcome": "approved", "rationale": "x", "rules_applied": []},
+        }) + "\n"
+    )
+    summary = replay_trace(run_id, log_dir=tmp_path)
+    assert summary["events"] == 3
+    assert summary["decision"] is not None
+    assert summary["decision"]["outcome"] == "approved"
