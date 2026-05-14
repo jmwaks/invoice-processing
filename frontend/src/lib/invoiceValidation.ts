@@ -17,6 +17,21 @@ export interface ValidationResult {
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 
+// Tolerance for money comparisons, in dollars.
+// Matches backend TOTAL_TOLERANCE in backend/app/agents/validate.py.
+export const TOTAL_TOLERANCE = 1.0;
+
+/**
+ * Parse a string from a numeric input field.
+ * - "" → null (blank input)
+ * - Strips thousands-separator commas: "1,250.00" → 1250
+ * - Unparseable input → NaN (validation surfaces this as "must be a number")
+ */
+export function parseNumber(v: string): number | null {
+  if (v === "") return null;
+  return parseFloat(v.replace(/,/g, ""));
+}
+
 export function validateDraft(draft: InvoiceData): ValidationResult {
   const errors: Partial<Record<FieldKey, string>> = {};
   const warnings: Partial<Record<FieldKey, string>> = {};
