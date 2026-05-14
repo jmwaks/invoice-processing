@@ -110,7 +110,25 @@ export function ExtractionReceipt({
           ))}
         </div>
       </div>
-      <div className="mt-5">
+      <dl className="mt-5 space-y-3">
+        <Field
+          label="Subtotal"
+          value={draft.subtotal === null ? "" : String(draft.subtotal)}
+          onChange={(v) => setField("subtotal", parseNumber(v))}
+          placeholder="0.00"
+          error={errors.subtotal}
+          warning={warnings.subtotal}
+          mono
+        />
+        <Field
+          label="Tax"
+          value={draft.tax_amount === null ? "" : String(draft.tax_amount)}
+          onChange={(v) => setField("tax_amount", parseNumber(v))}
+          placeholder="0.00"
+          error={errors.tax_amount}
+          warning={warnings.tax_amount}
+          mono
+        />
         <Field
           label="Total"
           value={draft.total === null ? "" : String(draft.total)}
@@ -120,7 +138,7 @@ export function ExtractionReceipt({
           warning={warnings.total}
           mono
         />
-      </div>
+      </dl>
       <div className="mt-6 flex items-center gap-3">
         <button
           type="button"
