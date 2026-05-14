@@ -23,6 +23,18 @@ CREATE TABLE IF NOT EXISTS vendors (
 );
 """
 
+PAID_INVOICES_DDL = """
+CREATE TABLE IF NOT EXISTS paid_invoices (
+    vendor_normalized TEXT NOT NULL,
+    invoice_number    TEXT NOT NULL,
+    run_id            TEXT NOT NULL,
+    vendor_display    TEXT,
+    amount            REAL NOT NULL,
+    paid_at           TEXT NOT NULL,
+    PRIMARY KEY (vendor_normalized, invoice_number)
+);
+"""
+
 _SUFFIX_RE = re.compile(r"\b(inc|llc|ltd|co|corp|corporation|company)\b\.?", re.IGNORECASE)
 _PUNCT_RE = re.compile(r"[^\w\s]")
 
@@ -40,7 +52,7 @@ def init_db(db_path: Path, seed_path: Path, reset: bool = False) -> None:
         db_path.unlink()
     conn = sqlite3.connect(db_path)
     try:
-        conn.executescript(INVENTORY_DDL + VENDORS_DDL)
+        conn.executescript(INVENTORY_DDL + VENDORS_DDL + PAID_INVOICES_DDL)
         with seed_path.open() as f:
             seed = yaml.safe_load(f)
         for row in seed["inventory"]:
