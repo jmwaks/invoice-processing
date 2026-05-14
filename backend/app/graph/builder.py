@@ -41,7 +41,10 @@ def build_graph(
         return run_approve(state, llm=llm, emitter=make_emitter(state, log_dir))
 
     def pay_node(state: InvoiceState) -> InvoiceState:
-        return run_pay(state, emitter=make_emitter(state, log_dir), paid_invoices=paid_invoices)
+        return run_pay(
+            state, emitter=make_emitter(state, log_dir),
+            paid_invoices=paid_invoices, db_path=db_path,
+        )
 
     def log_node_fn(state: InvoiceState) -> InvoiceState:
         return run_log(state, emitter=make_emitter(state, log_dir))
