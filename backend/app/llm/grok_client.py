@@ -11,7 +11,10 @@ from openai import (
     APIConnectionError,
     APIStatusError,
     APITimeoutError,
+    AuthenticationError,
+    NotFoundError,
     OpenAI,
+    PermissionDeniedError,
     RateLimitError,
 )
 from pydantic import BaseModel, ValidationError
@@ -95,6 +98,12 @@ class GrokClient:
                     schema=schema,
                     max_retries=max_retries,
                 )
+            except AuthenticationError as e:
+                raise LLMConfigurationError("Grok API key invalid or missing.") from e
+            except PermissionDeniedError as e:
+                raise LLMConfigurationError("Grok API access denied.") from e
+            except NotFoundError as e:
+                raise LLMConfigurationError("Configured Grok model not found.") from e
             except (
                 RateLimitError,
                 APIConnectionError,
@@ -106,7 +115,7 @@ class GrokClient:
                 time.sleep(self._retry_delay(attempt, e))
             except APIStatusError as e:
                 if e.status_code < 500:
-                    raise
+                    raise  # 400 BadRequest and any other unmapped 4xx — re-raise as-is
                 last_exc = e
                 if attempt == _MAX_ATTEMPTS:
                     break

@@ -142,3 +142,48 @@ def test_503_retries_then_raises_unavailable(monkeypatch):
     with pytest.raises(LLMUnavailableError):
         client.structured_complete(system="s", user="u", schema=Toy)
     assert mock_sdk.chat.completions.create.call_count == 3
+
+
+def _api_status_subclass_error(cls_name: str, status_code: int) -> Exception:
+    """Construct a real openai APIStatusError subclass for the given HTTP status."""
+    import openai
+    cls = getattr(openai, cls_name)
+    response = httpx.Response(
+        status_code,
+        request=httpx.Request("POST", "https://api.x.ai/v1/chat/completions"),
+    )
+    return cls(message=f"http {status_code}", response=response, body=None)
+
+
+def test_auth_error_raises_configuration_error_immediately(monkeypatch):
+    """401 -> LLMConfigurationError immediately, no retry, no fallback."""
+    monkeypatch.setattr("app.llm.grok_client.time.sleep", lambda s: None)
+
+    mock_sdk = MagicMock()
+    mock_sdk.chat.completions.create.side_effect = _api_status_subclass_error(
+        "AuthenticationError", 401
+    )
+
+    from app.llm.grok_client import LLMConfigurationError
+    client = GrokClient(model="grok-4", fallback_model="grok-3", sdk=mock_sdk)
+    with pytest.raises(LLMConfigurationError) as exc_info:
+        client.structured_complete(system="s", user="u", schema=Toy)
+
+    assert "key" in exc_info.value.user_message.lower()
+    assert mock_sdk.chat.completions.create.call_count == 1  # no retry, no fallback
+
+
+def test_bad_request_re_raised_as_is(monkeypatch):
+    """400 -> BadRequestError bubbles up unchanged. No retry."""
+    from openai import BadRequestError
+    monkeypatch.setattr("app.llm.grok_client.time.sleep", lambda s: None)
+
+    mock_sdk = MagicMock()
+    mock_sdk.chat.completions.create.side_effect = _api_status_subclass_error(
+        "BadRequestError", 400
+    )
+
+    client = GrokClient(model="grok-4", fallback_model="grok-3", sdk=mock_sdk)
+    with pytest.raises(BadRequestError):
+        client.structured_complete(system="s", user="u", schema=Toy)
+    assert mock_sdk.chat.completions.create.call_count == 1
