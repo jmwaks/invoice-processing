@@ -27,6 +27,7 @@ export interface SuspicionSignal {
   kind: string;
   detail: string;
   severity: SuspicionSeverity;
+  text_match: string | null;
 }
 
 export interface ValidationIssue {

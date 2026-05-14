@@ -26,12 +26,21 @@ export interface ActiveRunView {
   done: boolean;
 }
 
+export interface CurrentBatch {
+  runIds: string[];
+  startedAt: number;
+}
+
 interface Store {
   activeRunId: string | null;
   runs: Record<string, ActiveRunView>;
+  currentBatch: CurrentBatch | null;
   selectRun: (runId: string) => void;
+  setActiveRunId: (runId: string | null) => void;
   appendEvent: (runId: string, e: RunEvent) => void;
   initializeRun: (runId: string) => void;
+  startBatch: (runIds: string[]) => void;
+  clearBatchIfComplete: (doneRunIds: Set<string>) => void;
 }
 
 const emptyStages = (): ActiveRunView["stages"] => ({
@@ -45,7 +54,9 @@ const emptyStages = (): ActiveRunView["stages"] => ({
 export const useRunStore = create<Store>((set, get) => ({
   activeRunId: null,
   runs: {},
+  currentBatch: null,
   selectRun: (runId) => set({ activeRunId: runId }),
+  setActiveRunId: (runId) => set({ activeRunId: runId }),
   initializeRun: (runId) =>
     set((s) => ({
       activeRunId: runId,
@@ -90,5 +101,13 @@ export const useRunStore = create<Store>((set, get) => ({
       if (e.kind === "run.error") r.done = true;
       return { runs: { ...s.runs, [runId]: r } };
     });
+  },
+  startBatch: (runIds) =>
+    set({ currentBatch: { runIds, startedAt: Date.now() } }),
+  clearBatchIfComplete: (doneRunIds) => {
+    const batch = get().currentBatch;
+    if (batch === null) return;
+    const allDone = batch.runIds.every((rid) => doneRunIds.has(rid));
+    if (allDone) set({ currentBatch: null });
   },
 }));

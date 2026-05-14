@@ -4,6 +4,16 @@ import json
 import logging
 from pathlib import Path
 
+from openai import (
+    APIConnectionError,
+    APIStatusError,
+    APITimeoutError,
+    AuthenticationError,
+    NotFoundError,
+    PermissionDeniedError,
+    RateLimitError,
+)
+
 from app.config import get_settings
 from app.graph.state import (
     Critique,
@@ -12,7 +22,7 @@ from app.graph.state import (
     Proposal,
     ToolCall,
 )
-from app.llm.grok_client import CallMeta, GrokClient
+from app.llm.grok_client import CallMeta, GrokClient, LLMConfigurationError, LLMUnavailableError
 from app.llm.tools_loop import run_tool_loop
 from app.logging_.event_emitter import EventEmitter
 from app.rules.engine import RuleEvaluation, evaluate_rules
@@ -110,6 +120,9 @@ def _run_propose(llm: GrokClient, emitter: EventEmitter, context: str) -> tuple[
     emitter.emit("approve.propose.start", node="approve")
     proposal, meta = llm.structured_complete(
         system=PROPOSE_SYSTEM, user=context, schema=Proposal,
+        on_attempt=lambda model: emitter.emit(
+            "llm.attempt", node="approve", sub="propose", model=model,
+        ),
     )
     _emit_llm(emitter, "propose", meta)
     emitter.emit("approve.propose.complete", node="approve", output=proposal.model_dump())
@@ -128,10 +141,15 @@ def _run_critique(
     try:
         critique, meta = llm.structured_complete(
             system=CRITIQUE_SYSTEM, user=critique_user, schema=Critique,
+            on_attempt=lambda model: emitter.emit(
+                "llm.attempt", node="approve", sub="critique", model=model,
+            ),
         )
         _emit_llm(emitter, "critique", meta)
         emitter.emit("approve.critique.complete", node="approve", output=critique.model_dump())
         return critique, False
+    except (LLMUnavailableError, LLMConfigurationError):
+        raise
     except Exception as e:
         _logger.exception("approve: critique pass failed")
         emitter.emit("approve.critique.complete", node="approve", output={"error": str(e)})
@@ -153,6 +171,9 @@ def _run_finalize(
     emitter.emit("approve.finalize.start", node="approve")
     final_proposal, meta = llm.structured_complete(
         system=FINALIZE_SYSTEM, user=finalize_user, schema=Proposal,
+        on_attempt=lambda model: emitter.emit(
+            "llm.attempt", node="approve", sub="finalize", model=model,
+        ),
     )
     _emit_llm(emitter, "finalize", meta)
     emitter.emit("approve.finalize.complete", node="approve", output=final_proposal.model_dump())
@@ -175,6 +196,20 @@ def _run_investigate(
             system=INVESTIGATE_SYSTEM, user=context,
             tools_schema=TOOL_SCHEMAS, dispatch=_dispatch, max_iterations=4,
         )
+    except (LLMUnavailableError, LLMConfigurationError):
+        raise
+    except AuthenticationError as e:
+        raise LLMConfigurationError("Grok API key invalid or missing.") from e
+    except PermissionDeniedError as e:
+        raise LLMConfigurationError("Grok API access denied.") from e
+    except NotFoundError as e:
+        raise LLMConfigurationError("Configured Grok model not found.") from e
+    except (RateLimitError, APIConnectionError, APITimeoutError) as e:
+        raise LLMUnavailableError() from e
+    except APIStatusError as e:
+        if e.status_code < 500:
+            raise
+        raise LLMUnavailableError() from e
     except Exception as e:
         _logger.exception("approve: investigate pass failed")
         emitter.emit("approve.investigate.complete", node="approve", output={"error": str(e)})

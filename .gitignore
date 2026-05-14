@@ -231,3 +231,11 @@ frontend/tsconfig.tsbuildinfo
 # superpowers
 superpowers/*
 tasks/*
+
+# OS specific
+.DS_Store
+backend/data/.DS_Store
+docs/.DS_Store
+
+# Vite
+frontend/.vite/

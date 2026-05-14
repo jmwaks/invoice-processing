@@ -1,8 +1,29 @@
 from unittest.mock import MagicMock
 
+import httpx
+import pytest
+from openai import APIStatusError, RateLimitError
 from pydantic import BaseModel
 
 from app.llm.grok_client import GrokClient
+
+
+def _rate_limit_error(retry_after: str | None = None) -> RateLimitError:
+    headers = {"retry-after": retry_after} if retry_after is not None else {}
+    response = httpx.Response(
+        429,
+        headers=headers,
+        request=httpx.Request("POST", "https://api.x.ai/v1/chat/completions"),
+    )
+    return RateLimitError(message="capacity exhausted", response=response, body=None)
+
+
+def _api_status_error(status_code: int) -> APIStatusError:
+    response = httpx.Response(
+        status_code,
+        request=httpx.Request("POST", "https://api.x.ai/v1/chat/completions"),
+    )
+    return APIStatusError(message=f"http {status_code}", response=response, body=None)
 
 
 class Toy(BaseModel):
@@ -52,7 +73,6 @@ def test_grok_client_retries_on_validation_error_then_succeeds():
 
 def test_grok_client_raises_when_retries_exhausted():
     """Both responses invalid — should raise ValidationError after max_retries."""
-    import pytest
     from pydantic import ValidationError
     mock_sdk = MagicMock()
     bad_resp = MagicMock()
@@ -66,3 +86,310 @@ def test_grok_client_raises_when_retries_exhausted():
             system="extract", user="data", schema=Toy, max_retries=1,
         )
     assert mock_sdk.chat.completions.create.call_count == 2  # 1 initial + 1 retry
+
+
+def test_retries_succeed_after_429(monkeypatch):
+    """First grok-4 call raises 429, second returns valid JSON. Assert 2 SDK calls."""
+    sleeps: list[float] = []
+    monkeypatch.setattr("app.llm.grok_client.time.sleep", lambda s: sleeps.append(s))
+    monkeypatch.setattr("app.llm.grok_client.random.uniform", lambda a, b: (a + b) / 2)
+
+    good_resp = MagicMock()
+    good_resp.choices = [MagicMock(message=MagicMock(content='{"a": 7, "b": "hi"}'))]
+    good_resp.usage = MagicMock(prompt_tokens=10, completion_tokens=5)
+
+    mock_sdk = MagicMock()
+    mock_sdk.chat.completions.create.side_effect = [_rate_limit_error(), good_resp]
+
+    client = GrokClient(model="grok-4", sdk=mock_sdk)
+    parsed, _ = client.structured_complete(system="extract", user="data", schema=Toy)
+
+    assert parsed == Toy(a=7, b="hi")
+    assert mock_sdk.chat.completions.create.call_count == 2
+    assert len(sleeps) == 1
+
+
+def test_retries_honor_retry_after_header(monkeypatch):
+    """RateLimitError with Retry-After: 2 should cause sleep of ~2s (not exponential backoff)."""
+    sleeps: list[float] = []
+    monkeypatch.setattr("app.llm.grok_client.time.sleep", lambda s: sleeps.append(s))
+    # lambda returns 999.0 — would dominate exponential backoff if jitter path were taken
+    monkeypatch.setattr("app.llm.grok_client.random.uniform", lambda a, b: 999.0)
+
+    good_resp = MagicMock()
+    good_resp.choices = [MagicMock(message=MagicMock(content='{"a": 1, "b": "x"}'))]
+    good_resp.usage = MagicMock(prompt_tokens=1, completion_tokens=1)
+
+    mock_sdk = MagicMock()
+    mock_sdk.chat.completions.create.side_effect = [_rate_limit_error(retry_after="2"), good_resp]
+
+    client = GrokClient(model="grok-4", sdk=mock_sdk)
+    client.structured_complete(system="s", user="u", schema=Toy)
+
+    assert sleeps == [2.0]  # exact header value used, jitter NOT applied
+
+
+def test_503_retries_then_raises_unavailable(monkeypatch):
+    """All 3 grok-4 attempts return 503. Fallback disabled. Assert LLMUnavailableError."""
+    monkeypatch.setattr("app.llm.grok_client.time.sleep", lambda s: None)
+    monkeypatch.setattr("app.llm.grok_client.random.uniform", lambda a, b: 0.0)
+
+    mock_sdk = MagicMock()
+    mock_sdk.chat.completions.create.side_effect = [_api_status_error(503)] * 3
+
+    from app.llm.grok_client import LLMUnavailableError
+    client = GrokClient(model="grok-4", fallback_model="", sdk=mock_sdk)
+    with pytest.raises(LLMUnavailableError):
+        client.structured_complete(system="s", user="u", schema=Toy)
+    assert mock_sdk.chat.completions.create.call_count == 3
+
+
+def _api_status_subclass_error(cls_name: str, status_code: int) -> Exception:
+    """Construct a real openai APIStatusError subclass for the given HTTP status."""
+    import openai
+    cls = getattr(openai, cls_name)
+    response = httpx.Response(
+        status_code,
+        request=httpx.Request("POST", "https://api.x.ai/v1/chat/completions"),
+    )
+    return cls(message=f"http {status_code}", response=response, body=None)
+
+
+def test_auth_error_raises_configuration_error_immediately(monkeypatch):
+    """401 -> LLMConfigurationError immediately, no retry, no fallback."""
+    monkeypatch.setattr("app.llm.grok_client.time.sleep", lambda s: None)
+
+    mock_sdk = MagicMock()
+    mock_sdk.chat.completions.create.side_effect = _api_status_subclass_error(
+        "AuthenticationError", 401
+    )
+
+    from app.llm.grok_client import LLMConfigurationError
+    client = GrokClient(model="grok-4", fallback_model="grok-3", sdk=mock_sdk)
+    with pytest.raises(LLMConfigurationError) as exc_info:
+        client.structured_complete(system="s", user="u", schema=Toy)
+
+    assert "key" in exc_info.value.user_message.lower()
+    assert mock_sdk.chat.completions.create.call_count == 1  # no retry, no fallback
+
+
+def test_bad_request_re_raised_as_is(monkeypatch):
+    """400 -> BadRequestError bubbles up unchanged. No retry."""
+    from openai import BadRequestError
+    monkeypatch.setattr("app.llm.grok_client.time.sleep", lambda s: None)
+
+    mock_sdk = MagicMock()
+    mock_sdk.chat.completions.create.side_effect = _api_status_subclass_error(
+        "BadRequestError", 400
+    )
+
+    client = GrokClient(model="grok-4", fallback_model="grok-3", sdk=mock_sdk)
+    with pytest.raises(BadRequestError):
+        client.structured_complete(system="s", user="u", schema=Toy)
+    assert mock_sdk.chat.completions.create.call_count == 1
+
+
+def test_falls_back_to_grok3_after_exhaustion(monkeypatch):
+    """3 RateLimitError on grok-4, then grok-3 succeeds. Assert 4th call uses grok-3 + date prefix.
+    """
+    monkeypatch.setattr("app.llm.grok_client.time.sleep", lambda s: None)
+    monkeypatch.setattr("app.llm.grok_client.random.uniform", lambda a, b: 0.0)
+
+    good_resp = MagicMock()
+    good_resp.choices = [MagicMock(message=MagicMock(content='{"a": 9, "b": "ok"}'))]
+    good_resp.usage = MagicMock(prompt_tokens=3, completion_tokens=2)
+
+    mock_sdk = MagicMock()
+    mock_sdk.chat.completions.create.side_effect = [
+        _rate_limit_error(),
+        _rate_limit_error(),
+        _rate_limit_error(),
+        good_resp,
+    ]
+
+    client = GrokClient(model="grok-4", fallback_model="grok-3", sdk=mock_sdk)
+    parsed, meta = client.structured_complete(
+        system="extract things", user="data", schema=Toy,
+    )
+
+    assert parsed == Toy(a=9, b="ok")
+    assert mock_sdk.chat.completions.create.call_count == 4
+    assert meta.model == "grok-3"
+
+    fallback_call = mock_sdk.chat.completions.create.call_args_list[3]
+    assert fallback_call.kwargs["model"] == "grok-3"
+    system_msg = fallback_call.kwargs["messages"][0]["content"]
+    assert system_msg.startswith("Today's date is ")
+    assert "extract things" in system_msg
+
+
+def test_fallback_disabled_raises_when_empty(monkeypatch):
+    """Empty fallback_model means no grok-3 attempt; LLMUnavailableError after 3 grok-4 fails."""
+    monkeypatch.setattr("app.llm.grok_client.time.sleep", lambda s: None)
+    monkeypatch.setattr("app.llm.grok_client.random.uniform", lambda a, b: 0.0)
+
+    mock_sdk = MagicMock()
+    mock_sdk.chat.completions.create.side_effect = [_rate_limit_error()] * 3
+
+    from app.llm.grok_client import LLMUnavailableError
+    client = GrokClient(model="grok-4", fallback_model="", sdk=mock_sdk)
+    with pytest.raises(LLMUnavailableError):
+        client.structured_complete(system="s", user="u", schema=Toy)
+    assert mock_sdk.chat.completions.create.call_count == 3
+
+
+def test_total_attempt_budget_is_bounded(monkeypatch):
+    """3 grok-4 + 1 grok-3 all raise 429. Assert exactly 4 SDK calls and LLMUnavailableError."""
+    monkeypatch.setattr("app.llm.grok_client.time.sleep", lambda s: None)
+    monkeypatch.setattr("app.llm.grok_client.random.uniform", lambda a, b: 0.0)
+
+    mock_sdk = MagicMock()
+    mock_sdk.chat.completions.create.side_effect = [_rate_limit_error()] * 10  # plenty
+
+    from app.llm.grok_client import LLMUnavailableError
+    client = GrokClient(model="grok-4", fallback_model="grok-3", sdk=mock_sdk)
+    with pytest.raises(LLMUnavailableError):
+        client.structured_complete(system="s", user="u", schema=Toy)
+    assert mock_sdk.chat.completions.create.call_count == 4
+
+
+def test_sdk_constructed_with_zero_max_retries():
+    """Disable the OpenAI SDK's own retry layer so timeouts compose predictably."""
+    client = GrokClient(api_key="sk-test", model="grok-4")
+    assert client.sdk.max_retries == 0
+
+
+def test_primary_deadline_short_circuits_grok4_retries(monkeypatch):
+    """With a 60s primary budget, only ~2 timed-out attempts run before bailing."""
+    clock = {"t": 0.0}
+    monkeypatch.setattr(
+        "app.llm.grok_client.time.monotonic", lambda: clock["t"]
+    )
+    monkeypatch.setattr(
+        "app.llm.grok_client.time.sleep",
+        lambda s: clock.__setitem__("t", clock["t"] + s),
+    )
+    monkeypatch.setattr("app.llm.grok_client.random.uniform", lambda a, b: 0.0)
+
+    def fake_create(*args, **kwargs):
+        clock["t"] += 30.0  # simulate a 30s SDK timeout per attempt
+        raise _rate_limit_error()
+
+    mock_sdk = MagicMock()
+    mock_sdk.chat.completions.create.side_effect = fake_create
+
+    from app.llm.grok_client import LLMUnavailableError
+    # No fallback → exercises the primary-deadline behavior in isolation.
+    client = GrokClient(model="grok-4", fallback_model="", sdk=mock_sdk)
+    with pytest.raises(LLMUnavailableError):
+        client.structured_complete(system="s", user="u", schema=Toy)
+
+    # Attempt 1: t=0 → 30, sleep 0.5 → 30.5. Attempt 2: t=30.5 → 60.5, sleep 1
+    # → 61.5. Attempt 3: 61.5 ≥ 60 → break. Exactly 2 SDK calls reached.
+    assert mock_sdk.chat.completions.create.call_count == 2
+
+
+def test_fallback_runs_when_primary_exhausts_primary_budget(monkeypatch):
+    """Even when primary burns its full 60s budget, fallback still gets a shot."""
+    clock = {"t": 0.0}
+    monkeypatch.setattr(
+        "app.llm.grok_client.time.monotonic", lambda: clock["t"]
+    )
+    monkeypatch.setattr(
+        "app.llm.grok_client.time.sleep",
+        lambda s: clock.__setitem__("t", clock["t"] + s),
+    )
+    monkeypatch.setattr("app.llm.grok_client.random.uniform", lambda a, b: 0.0)
+
+    good_resp = MagicMock()
+    good_resp.choices = [MagicMock(message=MagicMock(content='{"a": 4, "b": "fb"}'))]
+    good_resp.usage = MagicMock(prompt_tokens=3, completion_tokens=2)
+
+    def fail_then_succeed(*args, **kwargs):
+        clock["t"] += 30.0
+        if mock_sdk.chat.completions.create.call_count <= 2:
+            raise _rate_limit_error()
+        return good_resp
+
+    mock_sdk = MagicMock()
+    mock_sdk.chat.completions.create.side_effect = fail_then_succeed
+
+    client = GrokClient(model="grok-4", fallback_model="grok-3", sdk=mock_sdk)
+    parsed, meta = client.structured_complete(system="s", user="u", schema=Toy)
+
+    # 2 primary attempts (primary deadline cuts the 3rd) + 1 fallback attempt.
+    assert mock_sdk.chat.completions.create.call_count == 3
+    assert parsed == Toy(a=4, b="fb")
+    assert meta.model == "grok-3"
+    # Fallback was invoked with max_retries=0 (one-shot, no validation retry).
+    fallback_call = mock_sdk.chat.completions.create.call_args_list[2]
+    assert fallback_call.kwargs["model"] == "grok-3"
+
+
+def test_on_attempt_callback_fires_per_sdk_call(monkeypatch):
+    """The on_attempt callback fires once per SDK call with the model name."""
+    monkeypatch.setattr("app.llm.grok_client.time.sleep", lambda s: None)
+    monkeypatch.setattr("app.llm.grok_client.random.uniform", lambda a, b: 0.0)
+
+    good_resp = MagicMock()
+    good_resp.choices = [MagicMock(message=MagicMock(content='{"a": 1, "b": "ok"}'))]
+    good_resp.usage = MagicMock(prompt_tokens=1, completion_tokens=1)
+
+    mock_sdk = MagicMock()
+    mock_sdk.chat.completions.create.side_effect = [_rate_limit_error(), good_resp]
+
+    seen: list[str] = []
+    client = GrokClient(model="grok-4", sdk=mock_sdk)
+    client.structured_complete(
+        system="s", user="u", schema=Toy, on_attempt=seen.append,
+    )
+    assert seen == ["grok-4", "grok-4"]
+
+
+def test_on_attempt_callback_fires_for_fallback_model(monkeypatch):
+    """Fallback path also invokes the callback — so a run log can show grok-3 ran."""
+    monkeypatch.setattr("app.llm.grok_client.time.sleep", lambda s: None)
+    monkeypatch.setattr("app.llm.grok_client.random.uniform", lambda a, b: 0.0)
+
+    good_resp = MagicMock()
+    good_resp.choices = [MagicMock(message=MagicMock(content='{"a": 1, "b": "ok"}'))]
+    good_resp.usage = MagicMock(prompt_tokens=1, completion_tokens=1)
+
+    mock_sdk = MagicMock()
+    mock_sdk.chat.completions.create.side_effect = [
+        _rate_limit_error(), _rate_limit_error(), _rate_limit_error(), good_resp,
+    ]
+
+    seen: list[str] = []
+    client = GrokClient(model="grok-4", fallback_model="grok-3", sdk=mock_sdk)
+    client.structured_complete(
+        system="s", user="u", schema=Toy, on_attempt=seen.append,
+    )
+    assert seen == ["grok-4", "grok-4", "grok-4", "grok-3"]
+
+
+def test_validation_retry_still_works_with_fallback_enabled(monkeypatch):
+    """Pydantic validation retry must not trigger fallback. Invalid-shape then valid on grok-4."""
+    monkeypatch.setattr("app.llm.grok_client.time.sleep", lambda s: None)
+
+    bad_resp = MagicMock()
+    bad_resp.choices = [MagicMock(message=MagicMock(content='{"a": "not_an_int", "b": "hi"}'))]
+    bad_resp.usage = MagicMock(prompt_tokens=10, completion_tokens=5)
+    good_resp = MagicMock()
+    good_resp.choices = [MagicMock(message=MagicMock(content='{"a": 7, "b": "hi"}'))]
+    good_resp.usage = MagicMock(prompt_tokens=12, completion_tokens=6)
+
+    mock_sdk = MagicMock()
+    mock_sdk.chat.completions.create.side_effect = [bad_resp, good_resp]
+
+    client = GrokClient(model="grok-4", fallback_model="grok-3", sdk=mock_sdk)
+    parsed, meta = client.structured_complete(
+        system="extract", user="data", schema=Toy, max_retries=1,
+    )
+
+    assert parsed == Toy(a=7, b="hi")
+    assert mock_sdk.chat.completions.create.call_count == 2
+    assert meta.model == "grok-4"  # NOT fallback
+    # The retry was a validation retry (extra user message appended), not a fallback.
+    second_call_messages = mock_sdk.chat.completions.create.call_args_list[1].kwargs["messages"]
+    assert "failed validation" in second_call_messages[-1]["content"]

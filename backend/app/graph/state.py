@@ -24,20 +24,22 @@ class InvoiceData(BaseModel):
     total: float | None
     currency: str = "USD"
     payment_terms: str | None = None
-    raw_text: str
+    # Sourced from disk in ingest (post-LLM); LLM is not asked to echo it,
+    # so the field defaults to "" if absent from the model's response.
+    raw_text: str = ""
 
 
 class SuspicionSignal(BaseModel):
     kind: Literal[
         "urgent_language",
-        "impossible_date",
-        "round_number",
         "unknown_vendor_pattern",
         "wire_transfer_demand",
+        "homoglyph_corruption",
         "other",
     ]
     detail: str
     severity: Literal["low", "medium", "high"]
+    text_match: str | None = None
 
 
 class ValidationIssue(BaseModel):
@@ -53,6 +55,9 @@ class ValidationIssue(BaseModel):
         "no_line_items",
         "total_math_error",
         "past_due_date",
+        "future_date",
+        "currency_mismatch",
+        "duplicate_invoice",
     ]
     item: str | None = None
     detail: str

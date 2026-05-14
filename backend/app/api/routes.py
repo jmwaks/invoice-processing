@@ -11,9 +11,11 @@ from fastapi import APIRouter, File, HTTPException, Request, UploadFile
 from pydantic import BaseModel
 from sse_starlette.sse import EventSourceResponse
 
+from app.api.decisions import effective_outcome
 from app.api.runs import Run, RunRegistry
 from app.api.sse import sse_response
 from app.graph.state import InvoiceData, InvoiceState
+from app.llm.grok_client import LLMConfigurationError, LLMUnavailableError
 from app.parsers.file_loader import load_invoice_file
 
 _logger = logging.getLogger(__name__)
@@ -36,6 +38,14 @@ def build_router(*, registry: RunRegistry, db_path: Path, graph: Any) -> APIRout
             # LangGraph returns the final state as a dict; sync it back so
             # /api/runs summaries reflect the actual outcome instead of "running".
             run.state = InvoiceState.model_validate(final)
+        except LLMUnavailableError as e:
+            _logger.warning("LLM unavailable for run %s: %s", run_id, e)
+            run.state.error = e.user_message
+            run.emitter.emit("run.error", error=e.user_message)
+        except LLMConfigurationError as e:
+            _logger.error("LLM configuration error for run %s: %s", run_id, e)
+            run.state.error = e.user_message
+            run.emitter.emit("run.error", error=e.user_message)
         except Exception as e:
             _logger.exception("graph run failed for %s", run_id)
             run.state.error = f"graph crashed: {e}"
@@ -81,7 +91,12 @@ def build_router(*, registry: RunRegistry, db_path: Path, graph: Any) -> APIRout
         run = registry.get(run_id)
         if run is None:
             raise HTTPException(404)
-        return run.state.model_dump(mode="json")
+        payload = run.state.model_dump(mode="json")
+        base = run.state.decision.outcome if run.state.decision is not None else None
+        payload["effective_outcome"] = effective_outcome(
+            run_id, log_dir=registry.log_dir, base_outcome=base,
+        ).model_dump(mode="json")
+        return payload
 
     @router.get("/runs")
     async def list_runs() -> list[dict[str, Any]]:
@@ -120,6 +135,21 @@ def build_router(*, registry: RunRegistry, db_path: Path, graph: Any) -> APIRout
         for r in runs:
             asyncio.create_task(_one(r.run_id))
         return {"run_ids": [r.run_id for r in runs], "total": len(invoices)}
+
+    @router.post("/runs/sample/{filename}")
+    async def create_run_from_sample(filename: str) -> dict[str, str]:
+        from app.config import get_settings
+        invoices_dir = get_settings().invoice_processing_invoices_dir.resolve()
+        # Reject path traversal: filename must be a single path component.
+        if "/" in filename or "\\" in filename or filename in {".", ".."}:
+            raise HTTPException(400, "invalid filename")
+        target = (invoices_dir / filename).resolve()
+        if not target.is_relative_to(invoices_dir) or not target.is_file():
+            raise HTTPException(404, "sample not found")
+        loaded = load_invoice_file(target)
+        run = registry.create(source_path=str(target), file_format=loaded.format)
+        asyncio.create_task(_run_graph(run.run_id))
+        return {"run_id": run.run_id}
 
     @router.get("/metrics")
     async def metrics() -> dict[str, Any]:
