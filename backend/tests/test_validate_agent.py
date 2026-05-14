@@ -318,3 +318,125 @@ def test_duplicate_check_skipped_when_vendor_missing(tmp_path: Path):
     kinds = {i.kind for i in out.validation.issues}
     assert "missing_vendor" in kinds
     assert "duplicate_invoice" not in kinds
+
+
+def test_duplicate_invoice_writes_retroactive_event_to_prior_log(tmp_path: Path):
+    """When a duplicate is detected, append `duplicate_detected_retroactive`
+    to the prior run's jsonl event log."""
+    import datetime as dt
+    import json
+    from app.db.paid_invoices import PaidInvoiceRecord, record_paid
+    from app.db.init_db import normalize_vendor
+
+    db = _seeded(tmp_path)
+    log_dir = tmp_path / "logs"
+    log_dir.mkdir()
+    prior_run_id = "prior-run"
+    prior_log = log_dir / f"{prior_run_id}.jsonl"
+    prior_log.write_text(
+        json.dumps({"kind": "node.start", "ts": "2026-01-16T12:00:00Z", "node": "ingest"})
+        + "\n"
+    )
+    record_paid(
+        PaidInvoiceRecord(
+            vendor_normalized=normalize_vendor("Widgets Inc."),
+            invoice_number="INV-1001", run_id=prior_run_id,
+            vendor_display="Widgets Inc.", amount=5000.0,
+            paid_at=dt.datetime(2026, 1, 16, 12, 0, tzinfo=dt.timezone.utc),
+        ),
+        db_path=db,
+    )
+
+    state = _state(_inv(
+        invoice_number="INV-1001", vendor="Widgets Inc.",
+        line_items=[LineItem(item="WidgetA", quantity=5, unit_price=250.0)],
+        total=1250.0,
+    ))
+    state.run_id = "later-run"
+    emitter = EventEmitter("later-run", state.events, log_dir)
+    run_validate(state, db_path=db, emitter=emitter)
+
+    lines = prior_log.read_text().splitlines()
+    retro = [
+        json.loads(line) for line in lines
+        if json.loads(line).get("kind") == "duplicate_detected_retroactive"
+    ]
+    assert len(retro) == 1
+    assert retro[0]["later_run_id"] == "later-run"
+    assert retro[0]["later_amount"] == 1250.0
+
+
+def test_duplicate_invoice_writes_decision_update_sidecar(tmp_path: Path):
+    """When a duplicate is detected, append a row to decision_updates.jsonl
+    flipping the prior run to needs_review."""
+    import datetime as dt
+    import json
+    from app.db.paid_invoices import PaidInvoiceRecord, record_paid
+    from app.db.init_db import normalize_vendor
+
+    db = _seeded(tmp_path)
+    log_dir = tmp_path / "logs"
+    log_dir.mkdir()
+    prior_run_id = "prior-run"
+    (log_dir / f"{prior_run_id}.jsonl").write_text("")
+    record_paid(
+        PaidInvoiceRecord(
+            vendor_normalized=normalize_vendor("Widgets Inc."),
+            invoice_number="INV-1001", run_id=prior_run_id,
+            vendor_display="Widgets Inc.", amount=5000.0,
+            paid_at=dt.datetime(2026, 1, 16, tzinfo=dt.timezone.utc),
+        ),
+        db_path=db,
+    )
+
+    state = _state(_inv(
+        invoice_number="INV-1001", vendor="Widgets Inc.",
+        line_items=[LineItem(item="WidgetA", quantity=5, unit_price=250.0)],
+        total=1250.0,
+    ))
+    state.run_id = "later-run"
+    emitter = EventEmitter("later-run", state.events, log_dir)
+    run_validate(state, db_path=db, emitter=emitter)
+
+    sidecar = log_dir / "decision_updates.jsonl"
+    assert sidecar.exists()
+    rows = [json.loads(line) for line in sidecar.read_text().splitlines() if line.strip()]
+    matching = [r for r in rows if r["run_id"] == prior_run_id]
+    assert len(matching) == 1
+    assert matching[0]["new_outcome"] == "needs_review"
+    assert matching[0]["reason"] == "duplicate_detected"
+    assert matching[0]["triggered_by_run_id"] == "later-run"
+
+
+def test_duplicate_invoice_handles_missing_prior_log_gracefully(tmp_path: Path):
+    """If the prior run's jsonl is not on disk, emit a skipped event but do not raise."""
+    import datetime as dt
+    from app.db.paid_invoices import PaidInvoiceRecord, record_paid
+    from app.db.init_db import normalize_vendor
+
+    db = _seeded(tmp_path)
+    log_dir = tmp_path / "logs"
+    log_dir.mkdir()
+    # NOTE: no prior log file created.
+    record_paid(
+        PaidInvoiceRecord(
+            vendor_normalized=normalize_vendor("Widgets Inc."),
+            invoice_number="INV-1001", run_id="prior-run-gone",
+            vendor_display="Widgets Inc.", amount=5000.0,
+            paid_at=dt.datetime(2026, 1, 16, tzinfo=dt.timezone.utc),
+        ),
+        db_path=db,
+    )
+
+    state = _state(_inv(
+        invoice_number="INV-1001", vendor="Widgets Inc.",
+        line_items=[LineItem(item="WidgetA", quantity=1, unit_price=250.0)],
+        total=250.0,
+    ))
+    state.run_id = "later-run"
+    emitter = EventEmitter("later-run", state.events, log_dir)
+    out = run_validate(state, db_path=db, emitter=emitter)
+    kinds = {i.kind for i in out.validation.issues}
+    assert "duplicate_invoice" in kinds
+    event_kinds = [e.get("kind") for e in state.events]
+    assert "duplicate_detected_retroactive_skipped" in event_kinds

@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import datetime as dt
+import json
 from pathlib import Path
 
 from app.db.paid_invoices import lookup_paid
@@ -70,7 +72,9 @@ def _check_currency(inv: InvoiceData) -> list[ValidationIssue]:
     )]
 
 
-def _check_duplicate_invoice(inv: InvoiceData, db_path: Path) -> list[ValidationIssue]:
+def _check_duplicate_invoice(
+    inv: InvoiceData, db_path: Path, *, state_run_id: str, emitter: EventEmitter,
+) -> list[ValidationIssue]:
     if not inv.invoice_number or not inv.vendor or not inv.vendor.strip():
         return []
     prior = lookup_paid(
@@ -78,7 +82,8 @@ def _check_duplicate_invoice(inv: InvoiceData, db_path: Path) -> list[Validation
     )
     if prior is None:
         return []
-    return [ValidationIssue(
+
+    issue = ValidationIssue(
         kind="duplicate_invoice",
         detail=(
             f"already paid in run {prior.run_id} for ${prior.amount:.2f} "
@@ -86,7 +91,45 @@ def _check_duplicate_invoice(inv: InvoiceData, db_path: Path) -> list[Validation
             f"${(inv.total or 0.0):.2f}"
         ),
         severity="warn",
-    )]
+    )
+
+    log_dir = emitter.log_dir
+    now_iso = dt.datetime.now(dt.timezone.utc).isoformat()
+    prior_log = log_dir / f"{prior.run_id}.jsonl"
+
+    if prior_log.exists():
+        retroactive_event = {
+            "kind": "duplicate_detected_retroactive",
+            "ts": now_iso,
+            "later_run_id": state_run_id,
+            "later_amount": inv.total or 0.0,
+            "later_invoice_number": inv.invoice_number,
+        }
+        with prior_log.open("a") as f:
+            f.write(json.dumps(retroactive_event, default=str) + "\n")
+
+        sidecar = log_dir / "decision_updates.jsonl"
+        sidecar_row = {
+            "run_id": prior.run_id,
+            "invoice_number": prior.invoice_number,
+            "previous_outcome": "approved",
+            "new_outcome": "needs_review",
+            "reason": "duplicate_detected",
+            "updated_at": now_iso,
+            "triggered_by_run_id": state_run_id,
+        }
+        with sidecar.open("a") as f:
+            f.write(json.dumps(sidecar_row, default=str) + "\n")
+    else:
+        emitter.emit(
+            "duplicate_detected_retroactive_skipped", node="validate",
+            output={
+                "prior_run_id": prior.run_id,
+                "reason": "prior_log_not_found",
+            },
+        )
+
+    return [issue]
 
 
 def _check_total_math(inv: InvoiceData) -> list[ValidationIssue]:
@@ -201,7 +244,9 @@ def run_validate(state: InvoiceState, *, db_path: Path, emitter: EventEmitter) -
     issues.extend(_check_dates(inv))
     issues.extend(_check_total_math(inv))
     issues.extend(_check_currency(inv))
-    issues.extend(_check_duplicate_invoice(inv, db_path))
+    issues.extend(_check_duplicate_invoice(
+        inv, db_path, state_run_id=state.run_id, emitter=emitter,
+    ))
     inv_issues, lookups = _check_line_items_against_inventory(inv, db_path, emitter)
     issues.extend(inv_issues)
     vendor_issues, vendor_result = _check_vendor(inv, db_path, emitter)
