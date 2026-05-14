@@ -121,3 +121,16 @@ Patterns from running 10 bundles → 11 commits via subagent-driven-development:
 ## Append-only sidecar pattern for retroactive overrides
 
 When a later event needs to amend a prior record without mutating its append-only event log, write to a sidecar (`decision_updates.jsonl`) and compose at read time via an `effective_outcome`-style helper. Avoids breaking replay semantics on the source log. The composer reads the sidecar linearly and the latest matching row wins. Document the chronological-latest-wins semantics in the composer docstring — future maintainers will assume hash-map semantics otherwise.
+
+## Subagent "helpful improvement" defects (2026-05-13, extraction-tax session)
+
+Even cheap/Haiku implementers will *interpret* prompts and add things you didn't ask for. Two failure modes hit in a 6-task plan, both during fix-loops where the implementer felt licensed to reason:
+
+- **"Dead code" deletion of an about-to-be-used symbol.** Asked a fix subagent to remove an erroneous `export` keyword from `const TOTAL_TOLERANCE = 1.0`. It deleted the whole constant, reasoning that the constant was unused yet — ignoring that the next plan task (already in the plan I gave it the path to) consumes it three times. Cost: one extra round-trip (`restore TOTAL_TOLERANCE`) plus a polluted commit history (`remove → restore` adjacent commits).
+- **Uninstructed `@ts-ignore`.** The restore subagent added `// @ts-ignore TS6133 - used in relationship checks added in next plan task` above the declaration to "suppress the unused-variable warning." I never asked for it; the build didn't need it (`noUnusedLocals` is not on, or wasn't tripping); and once the next task added the consumer the ignore became dead weight. Cost: had to fold the `@ts-ignore` removal into the next task's prompt.
+
+Rules to bake into fix-subagent prompts:
+
+- **Negative-instruction blocklist.** Explicitly list things the subagent must NOT do: "do not delete code outside the explicit deletion list", "do not add `@ts-ignore` / `@ts-expect-error` / eslint-disable", "do not add justification comments", "do not 'improve' anything outside the diff", "do not make dead-code judgment calls — the plan is authoritative".
+- **Surgical fix prompts read like patches.** For a one-character fix, the prompt should be "delete the word `export` on line X. Touch nothing else." Anything more discursive invites interpretation. Quote the before/after exactly and end with "report yes/no per: only the targeted change, nothing else."
+- **Show the upcoming task's consumer.** If the symbol the subagent is fixing is used in the next bundle, paste the consuming snippet into the prompt. Removes the "is this used?" judgment call entirely.
