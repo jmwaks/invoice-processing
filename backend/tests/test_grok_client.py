@@ -236,3 +236,18 @@ def test_fallback_disabled_raises_when_empty(monkeypatch):
     with pytest.raises(LLMUnavailableError):
         client.structured_complete(system="s", user="u", schema=Toy)
     assert mock_sdk.chat.completions.create.call_count == 3
+
+
+def test_total_attempt_budget_is_bounded(monkeypatch):
+    """All 4 calls (3 grok-4 + 1 grok-3) raise 429. Assert exactly 4 SDK calls, LLMUnavailableError."""
+    monkeypatch.setattr("app.llm.grok_client.time.sleep", lambda s: None)
+    monkeypatch.setattr("app.llm.grok_client.random.uniform", lambda a, b: 0.0)
+
+    mock_sdk = MagicMock()
+    mock_sdk.chat.completions.create.side_effect = [_rate_limit_error()] * 10  # plenty
+
+    from app.llm.grok_client import LLMUnavailableError
+    client = GrokClient(model="grok-4", fallback_model="grok-3", sdk=mock_sdk)
+    with pytest.raises(LLMUnavailableError):
+        client.structured_complete(system="s", user="u", schema=Toy)
+    assert mock_sdk.chat.completions.create.call_count == 4
