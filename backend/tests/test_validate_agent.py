@@ -1,3 +1,4 @@
+import datetime as dt
 from pathlib import Path
 
 from app.agents.validate import run_validate
@@ -529,3 +530,36 @@ def test_duplicate_invoice_retroactive_write_io_error_does_not_crash(
     # Skipped event is emitted:
     event_kinds = [e.get("kind") for e in state.events]
     assert "duplicate_detected_retroactive_skipped" in event_kinds
+
+
+def test_run_validate_emits_future_date_issue_when_date_after_today(tmp_path: Path):
+    """Positive: invoice date 10 days in the future surfaces as a warn-level ValidationIssue."""
+    db = _seeded(tmp_path)
+    state = _state(_inv(
+        date=dt.date(2026, 5, 23),
+        line_items=[LineItem(item="WidgetA", quantity=1, unit_price=250.0)],
+        total=250.0,
+    ))
+    emitter = EventEmitter("r", state.events, tmp_path / "logs")
+    out = run_validate(state, db_path=db, emitter=emitter, today=dt.date(2026, 5, 13))
+    future_date_issues = [i for i in out.validation.issues if i.kind == "future_date"]
+    assert len(future_date_issues) == 1
+    assert future_date_issues[0].severity == "warn"
+
+
+def test_run_validate_no_future_date_issue_when_date_in_past(tmp_path: Path):
+    """Regression for INV-1006: a past invoice date must NOT trigger a future_date issue."""
+    db = _seeded(tmp_path)
+    state = _state(_inv(
+        invoice_number="INV-1006",
+        vendor="Acme Industrial Supplies",
+        date=dt.date(2026, 1, 25),
+        line_items=[
+            LineItem(item="WidgetA", quantity=5, unit_price=250.0),
+            LineItem(item="WidgetB", quantity=3, unit_price=500.0),
+        ],
+        subtotal=2750.0, tax_amount=0.0, total=2750.0,
+    ))
+    emitter = EventEmitter("r", state.events, tmp_path / "logs")
+    out = run_validate(state, db_path=db, emitter=emitter, today=dt.date(2026, 5, 13))
+    assert not any(i.kind == "future_date" for i in out.validation.issues)

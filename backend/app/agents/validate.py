@@ -252,8 +252,16 @@ def _check_vendor(
     return [], result
 
 
-def run_validate(state: InvoiceState, *, db_path: Path, emitter: EventEmitter) -> InvoiceState:
+def run_validate(
+    state: InvoiceState,
+    *,
+    db_path: Path,
+    emitter: EventEmitter,
+    today: dt.date | None = None,
+) -> InvoiceState:
     emitter.emit("node.start", node="validate")
+    if today is None:
+        today = dt.date.today()
     inv = state.invoice
     if inv is None:
         state.validation = ValidationReport(issues=[], inventory_lookups=[], vendor_lookup=None)
@@ -264,6 +272,7 @@ def run_validate(state: InvoiceState, *, db_path: Path, emitter: EventEmitter) -
     issues.extend(_check_required_fields(inv))
     issues.extend(_check_negative_quantities(inv))
     issues.extend(_check_dates(inv))
+    issues.extend(_check_future_date(inv, today))
     issues.extend(_check_total_math(inv))
     issues.extend(_check_currency(inv))
     issues.extend(_check_duplicate_invoice(
