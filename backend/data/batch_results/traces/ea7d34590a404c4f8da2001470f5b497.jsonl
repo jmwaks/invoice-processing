@@ -1,6 +1,0 @@
-{"kind": "node.start", "ts": "2026-05-13T17:56:58.519979+00:00", "node": "ingest"}
-{"kind": "ingest.retry", "ts": "2026-05-13T17:58:30.027867+00:00", "node": "ingest", "reason": "pydantic validation exhausted"}
-{"kind": "node.complete", "ts": "2026-05-13T17:58:30.028300+00:00", "node": "ingest", "output": {"error": "unprocessable: extraction failed (Request timed out.)"}}
-{"kind": "node.start", "ts": "2026-05-13T17:58:30.029182+00:00", "node": "log"}
-{"kind": "log.unprocessable_written", "ts": "2026-05-13T17:58:30.029288+00:00", "node": "log", "output": {"run_id": "ea7d34590a404c4f8da2001470f5b497", "invoice_number": null, "vendor": null, "outcome": "unprocessable", "rationale": "unprocessable: extraction failed (Request timed out.)", "rules_applied": [], "validation_issues": [], "suspicion_signals": [], "rejected_at": "2026-05-13T17:58:30.029283+00:00"}}
-{"kind": "node.complete", "ts": "2026-05-13T17:58:30.029458+00:00", "node": "log", "output": {"written": true}}
