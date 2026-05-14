@@ -1,6 +1,6 @@
 # Acme AP — Invoice Processing Automation
 
-A working multi-agent prototype for the Galatiq case study ([brief](https://github.com/mwakichako/galatiq-case-invoices/blob/main/README.md)). Ingests invoices in six formats (PDF, TXT, JSON, CSV, XML, email), validates them against a SQLite inventory database, runs an approver with a peer-critique loop and on-demand tool use, and pays approved invoices or logs rejections — end-to-end in seconds, with the full reasoning trace visible in a "case file" web UI.
+A working multi-agent prototype for the Galatiq case study ([brief](https://github.com/jmwaks/galatiq-case-invoices/blob/main/README.md)). Ingests invoices in six formats (PDF, TXT, JSON, CSV, XML, email), validates them against a SQLite inventory database, runs an approver with a peer-critique loop and on-demand tool use, and pays approved invoices or logs rejections — end-to-end in seconds, with the full reasoning trace visible in a "case file" web UI.
 
 **Branch under review:** `feature/ui-improvement` (this branch contains the case-file UI redesign; `main` has the prior dashboard.)
 
