@@ -135,6 +135,8 @@ export function invoicesEqual(a: InvoiceData, b: InvoiceData): boolean {
   if (a.date !== b.date) return false;
   if (a.due_date !== b.due_date) return false;
   if (a.total !== b.total) return false;
+  if (a.subtotal !== b.subtotal) return false;
+  if (a.tax_amount !== b.tax_amount) return false;
   if (a.line_items.length !== b.line_items.length) return false;
   for (let i = 0; i < a.line_items.length; i++) {
     const x = a.line_items[i];
