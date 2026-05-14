@@ -201,6 +201,54 @@ def test_usd_currency_does_not_warn(tmp_path: Path):
     assert "currency_mismatch" not in kinds
 
 
+def test_dollar_symbol_is_treated_as_usd(tmp_path: Path):
+    # Regression: ingest extracts currency verbatim, so invoices that print
+    # "$1,234.56" produce currency="$". The validator must treat "$" as USD
+    # and NOT raise currency_mismatch.
+    db = _seeded(tmp_path)
+    state = _state(_inv(
+        line_items=[LineItem(item="WidgetA", quantity=1, unit_price=250.0)],
+        total=250.0, currency="$",
+    ))
+    emitter = EventEmitter("r", state.events, tmp_path / "logs")
+    out = run_validate(state, db_path=db, emitter=emitter)
+    kinds = {i.kind for i in out.validation.issues}
+    assert "currency_mismatch" not in kinds
+
+
+def test_euro_symbol_is_treated_as_eur_and_warns(tmp_path: Path):
+    # The "€" symbol must normalize to "EUR" so the warn detail is readable.
+    # The warn itself must still fire (pipeline has no FX support).
+    db = _seeded(tmp_path)
+    state = _state(_inv(
+        line_items=[LineItem(item="WidgetA", quantity=4, unit_price=225.0)],
+        total=900.0, currency="€",
+    ))
+    emitter = EventEmitter("r", state.events, tmp_path / "logs")
+    out = run_validate(state, db_path=db, emitter=emitter)
+    by_kind = {i.kind: i for i in out.validation.issues}
+    assert "currency_mismatch" in by_kind
+    assert by_kind["currency_mismatch"].severity == "warn"
+    assert "EUR" in by_kind["currency_mismatch"].detail
+    assert "€" not in by_kind["currency_mismatch"].detail
+
+
+def test_unknown_currency_code_warns_passthrough(tmp_path: Path):
+    # Codes not in the alias table must still warn, with the upper-cased
+    # original code appearing in the detail (no silent swallowing).
+    db = _seeded(tmp_path)
+    state = _state(_inv(
+        line_items=[LineItem(item="WidgetA", quantity=1, unit_price=250.0)],
+        total=250.0, currency="xyz",
+    ))
+    emitter = EventEmitter("r", state.events, tmp_path / "logs")
+    out = run_validate(state, db_path=db, emitter=emitter)
+    by_kind = {i.kind: i for i in out.validation.issues}
+    assert "currency_mismatch" in by_kind
+    assert by_kind["currency_mismatch"].severity == "warn"
+    assert "XYZ" in by_kind["currency_mismatch"].detail
+
+
 def test_qty_exceeds_stock_aggregates_across_split_lines(tmp_path: Path):
     db = _seeded(tmp_path)
     # INV-9005 case: same item split across 49 lines of qty=1, each below stock (15)

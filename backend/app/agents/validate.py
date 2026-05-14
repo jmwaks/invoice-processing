@@ -21,6 +21,23 @@ PRICE_TOLERANCE = 0.10  # 10%
 TOTAL_TOLERANCE = 1.00  # $1
 EXPECTED_CURRENCY = "USD"  # payment pipeline assumes USD; flag others for review
 
+# Symbol/alias normalization. Keys are pre-upper-cased so a single
+# .strip().upper() lookup is case-insensitive. The LLM extracts currency
+# verbatim from the source, so "$" is a legitimate USD marker — not a
+# mismatch. Non-USD aliases (€, £, ¥) normalize to ISO codes so the
+# warn detail is readable, but they still trigger currency_mismatch.
+CURRENCY_ALIASES: dict[str, str] = {
+    "$": "USD", "US$": "USD", "USD$": "USD",
+    "€": "EUR", "EUR€": "EUR",
+    "£": "GBP", "GBP£": "GBP",
+    "¥": "JPY", "JPY¥": "JPY",
+}
+
+
+def _normalize_currency(raw: str) -> str:
+    code = raw.strip().upper()
+    return CURRENCY_ALIASES.get(code, code)
+
 
 def _check_required_fields(inv: InvoiceData) -> list[ValidationIssue]:
     issues: list[ValidationIssue] = []
@@ -73,11 +90,14 @@ def _check_future_date(inv: InvoiceData, today: dt.date) -> list[ValidationIssue
 
 
 def _check_currency(inv: InvoiceData) -> list[ValidationIssue]:
-    if not inv.currency or inv.currency.upper() == EXPECTED_CURRENCY:
+    if not inv.currency:
+        return []
+    normalized = _normalize_currency(inv.currency)
+    if normalized == EXPECTED_CURRENCY:
         return []
     return [ValidationIssue(
         kind="currency_mismatch",
-        detail=f"invoice currency {inv.currency} != expected {EXPECTED_CURRENCY} "
+        detail=f"invoice currency {normalized} != expected {EXPECTED_CURRENCY} "
                f"(payment pipeline has no FX support)",
         severity="warn",
     )]
