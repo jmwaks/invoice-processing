@@ -10,6 +10,7 @@ class Settings(BaseSettings):
     xai_api_key: str = ""
     xai_model: str = "grok-4"
     xai_base_url: str = "https://api.x.ai/v1"
+    xai_fallback_model: str = "grok-3"
 
     invoice_processing_log_dir: Path = Path("./logs")
     invoice_processing_invoices_dir: Path = Path("./data/invoices")
