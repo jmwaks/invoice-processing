@@ -53,12 +53,11 @@ Return JSON matching this schema exactly:
   "invoice": {
     invoice_number, vendor, date, due_date,
     line_items:[{item, quantity, unit_price, notes}],
-    subtotal, tax_amount, total, currency, payment_terms, raw_text
+    subtotal, tax_amount, total, currency, payment_terms
   },
   "suspicion_signals": [{ kind, detail, severity, text_match }],
   "extraction_confidence": number
 }
-The raw_text field should echo the input text exactly.
 """
 
 
@@ -89,6 +88,9 @@ def run_ingest(state: InvoiceState, *, llm: GrokClient, emitter: EventEmitter) -
     try:
         parsed, meta = llm.structured_complete(
             system=SYSTEM_PROMPT, user=user, schema=IngestResponse, max_retries=1,
+            on_attempt=lambda model: emitter.emit(
+                "llm.attempt", node="ingest", model=model,
+            ),
         )
     except (LLMUnavailableError, LLMConfigurationError):
         raise

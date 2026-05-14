@@ -120,6 +120,9 @@ def _run_propose(llm: GrokClient, emitter: EventEmitter, context: str) -> tuple[
     emitter.emit("approve.propose.start", node="approve")
     proposal, meta = llm.structured_complete(
         system=PROPOSE_SYSTEM, user=context, schema=Proposal,
+        on_attempt=lambda model: emitter.emit(
+            "llm.attempt", node="approve", sub="propose", model=model,
+        ),
     )
     _emit_llm(emitter, "propose", meta)
     emitter.emit("approve.propose.complete", node="approve", output=proposal.model_dump())
@@ -138,6 +141,9 @@ def _run_critique(
     try:
         critique, meta = llm.structured_complete(
             system=CRITIQUE_SYSTEM, user=critique_user, schema=Critique,
+            on_attempt=lambda model: emitter.emit(
+                "llm.attempt", node="approve", sub="critique", model=model,
+            ),
         )
         _emit_llm(emitter, "critique", meta)
         emitter.emit("approve.critique.complete", node="approve", output=critique.model_dump())
@@ -165,6 +171,9 @@ def _run_finalize(
     emitter.emit("approve.finalize.start", node="approve")
     final_proposal, meta = llm.structured_complete(
         system=FINALIZE_SYSTEM, user=finalize_user, schema=Proposal,
+        on_attempt=lambda model: emitter.emit(
+            "llm.attempt", node="approve", sub="finalize", model=model,
+        ),
     )
     _emit_llm(emitter, "finalize", meta)
     emitter.emit("approve.finalize.complete", node="approve", output=final_proposal.model_dump())

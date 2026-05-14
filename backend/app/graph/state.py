@@ -24,7 +24,9 @@ class InvoiceData(BaseModel):
     total: float | None
     currency: str = "USD"
     payment_terms: str | None = None
-    raw_text: str
+    # Sourced from disk in ingest (post-LLM); LLM is not asked to echo it,
+    # so the field defaults to "" if absent from the model's response.
+    raw_text: str = ""
 
 
 class SuspicionSignal(BaseModel):

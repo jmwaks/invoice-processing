@@ -174,6 +174,38 @@ def _make_sdk_returning(content: str) -> MagicMock:
     return sdk
 
 
+def test_ingest_hydrates_raw_text_from_disk_when_llm_omits_it(tmp_path: Path):
+    """LLM is no longer asked to echo raw_text (saves ~30% output tokens).
+    Ingest must still produce state.invoice.raw_text == loaded.text by
+    overwriting whatever the response held."""
+    invoice_text = "INVOICE\nVendor: Widgets Inc.\nTotal: $1000\n"
+    inv_file = tmp_path / "inv.txt"
+    inv_file.write_text(invoice_text)
+
+    # Response omits raw_text entirely — schema default ("") applies.
+    response = json.dumps({
+        "invoice": {
+            "invoice_number": "INV-1", "vendor": "Widgets Inc.",
+            "date": None, "due_date": None, "line_items": [],
+            "subtotal": 1000.0, "tax_amount": 0.0, "total": 1000.0,
+            "currency": "USD", "payment_terms": None,
+        },
+        "suspicion_signals": [],
+        "extraction_confidence": 0.9,
+    })
+    sdk = _make_sdk_returning(response)
+    llm = GrokClient(sdk=sdk, model="grok-3-test")
+
+    state = _mk_state(str(inv_file))
+    emitter = EventEmitter("r", state.events, tmp_path / "logs")
+    out = run_ingest(state, llm=llm, emitter=emitter)
+
+    assert out.error is None
+    assert out.invoice is not None
+    # Hydrated from disk, not from the LLM.
+    assert out.invoice.raw_text == invoice_text
+
+
 def test_ingest_rejects_llm_response_with_banned_suspicion_kind(tmp_path: Path):
     """If the LLM emits a banned kind (e.g., impossible_date), pydantic must reject
     the response and run_ingest must mark the state as unprocessable.

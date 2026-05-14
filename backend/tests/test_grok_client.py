@@ -253,6 +253,121 @@ def test_total_attempt_budget_is_bounded(monkeypatch):
     assert mock_sdk.chat.completions.create.call_count == 4
 
 
+def test_sdk_constructed_with_zero_max_retries():
+    """Disable the OpenAI SDK's own retry layer so timeouts compose predictably."""
+    client = GrokClient(api_key="sk-test", model="grok-4")
+    assert client.sdk.max_retries == 0
+
+
+def test_primary_deadline_short_circuits_grok4_retries(monkeypatch):
+    """With a 60s primary budget, only ~2 timed-out attempts run before bailing."""
+    clock = {"t": 0.0}
+    monkeypatch.setattr(
+        "app.llm.grok_client.time.monotonic", lambda: clock["t"]
+    )
+    monkeypatch.setattr(
+        "app.llm.grok_client.time.sleep",
+        lambda s: clock.__setitem__("t", clock["t"] + s),
+    )
+    monkeypatch.setattr("app.llm.grok_client.random.uniform", lambda a, b: 0.0)
+
+    def fake_create(*args, **kwargs):
+        clock["t"] += 30.0  # simulate a 30s SDK timeout per attempt
+        raise _rate_limit_error()
+
+    mock_sdk = MagicMock()
+    mock_sdk.chat.completions.create.side_effect = fake_create
+
+    from app.llm.grok_client import LLMUnavailableError
+    # No fallback → exercises the primary-deadline behavior in isolation.
+    client = GrokClient(model="grok-4", fallback_model="", sdk=mock_sdk)
+    with pytest.raises(LLMUnavailableError):
+        client.structured_complete(system="s", user="u", schema=Toy)
+
+    # Attempt 1: t=0 → 30, sleep 0.5 → 30.5. Attempt 2: t=30.5 → 60.5, sleep 1
+    # → 61.5. Attempt 3: 61.5 ≥ 60 → break. Exactly 2 SDK calls reached.
+    assert mock_sdk.chat.completions.create.call_count == 2
+
+
+def test_fallback_runs_when_primary_exhausts_primary_budget(monkeypatch):
+    """Even when primary burns its full 60s budget, fallback still gets a shot."""
+    clock = {"t": 0.0}
+    monkeypatch.setattr(
+        "app.llm.grok_client.time.monotonic", lambda: clock["t"]
+    )
+    monkeypatch.setattr(
+        "app.llm.grok_client.time.sleep",
+        lambda s: clock.__setitem__("t", clock["t"] + s),
+    )
+    monkeypatch.setattr("app.llm.grok_client.random.uniform", lambda a, b: 0.0)
+
+    good_resp = MagicMock()
+    good_resp.choices = [MagicMock(message=MagicMock(content='{"a": 4, "b": "fb"}'))]
+    good_resp.usage = MagicMock(prompt_tokens=3, completion_tokens=2)
+
+    def fail_then_succeed(*args, **kwargs):
+        clock["t"] += 30.0
+        if mock_sdk.chat.completions.create.call_count <= 2:
+            raise _rate_limit_error()
+        return good_resp
+
+    mock_sdk = MagicMock()
+    mock_sdk.chat.completions.create.side_effect = fail_then_succeed
+
+    client = GrokClient(model="grok-4", fallback_model="grok-3", sdk=mock_sdk)
+    parsed, meta = client.structured_complete(system="s", user="u", schema=Toy)
+
+    # 2 primary attempts (primary deadline cuts the 3rd) + 1 fallback attempt.
+    assert mock_sdk.chat.completions.create.call_count == 3
+    assert parsed == Toy(a=4, b="fb")
+    assert meta.model == "grok-3"
+    # Fallback was invoked with max_retries=0 (one-shot, no validation retry).
+    fallback_call = mock_sdk.chat.completions.create.call_args_list[2]
+    assert fallback_call.kwargs["model"] == "grok-3"
+
+
+def test_on_attempt_callback_fires_per_sdk_call(monkeypatch):
+    """The on_attempt callback fires once per SDK call with the model name."""
+    monkeypatch.setattr("app.llm.grok_client.time.sleep", lambda s: None)
+    monkeypatch.setattr("app.llm.grok_client.random.uniform", lambda a, b: 0.0)
+
+    good_resp = MagicMock()
+    good_resp.choices = [MagicMock(message=MagicMock(content='{"a": 1, "b": "ok"}'))]
+    good_resp.usage = MagicMock(prompt_tokens=1, completion_tokens=1)
+
+    mock_sdk = MagicMock()
+    mock_sdk.chat.completions.create.side_effect = [_rate_limit_error(), good_resp]
+
+    seen: list[str] = []
+    client = GrokClient(model="grok-4", sdk=mock_sdk)
+    client.structured_complete(
+        system="s", user="u", schema=Toy, on_attempt=seen.append,
+    )
+    assert seen == ["grok-4", "grok-4"]
+
+
+def test_on_attempt_callback_fires_for_fallback_model(monkeypatch):
+    """Fallback path also invokes the callback — so a run log can show grok-3 ran."""
+    monkeypatch.setattr("app.llm.grok_client.time.sleep", lambda s: None)
+    monkeypatch.setattr("app.llm.grok_client.random.uniform", lambda a, b: 0.0)
+
+    good_resp = MagicMock()
+    good_resp.choices = [MagicMock(message=MagicMock(content='{"a": 1, "b": "ok"}'))]
+    good_resp.usage = MagicMock(prompt_tokens=1, completion_tokens=1)
+
+    mock_sdk = MagicMock()
+    mock_sdk.chat.completions.create.side_effect = [
+        _rate_limit_error(), _rate_limit_error(), _rate_limit_error(), good_resp,
+    ]
+
+    seen: list[str] = []
+    client = GrokClient(model="grok-4", fallback_model="grok-3", sdk=mock_sdk)
+    client.structured_complete(
+        system="s", user="u", schema=Toy, on_attempt=seen.append,
+    )
+    assert seen == ["grok-4", "grok-4", "grok-4", "grok-3"]
+
+
 def test_validation_retry_still_works_with_fallback_enabled(monkeypatch):
     """Pydantic validation retry must not trigger fallback. Invalid-shape then valid on grok-4."""
     monkeypatch.setattr("app.llm.grok_client.time.sleep", lambda s: None)

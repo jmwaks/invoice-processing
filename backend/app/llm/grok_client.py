@@ -6,6 +6,7 @@ import time
 from dataclasses import dataclass
 from datetime import date
 from time import perf_counter
+from collections.abc import Callable
 from typing import TypeVar, cast
 
 from openai import (
@@ -25,6 +26,11 @@ T = TypeVar("T", bound=BaseModel)
 _MAX_ATTEMPTS = 3
 _BASE_DELAY_S = 0.5
 _MAX_DELAY_S = 8.0
+# Split wall-clock budget so the fallback always gets a shot when configured.
+# Primary takes ≤60s (~2 timed-out attempts), then the fallback gets a single
+# SDK call bounded by the 30s request timeout. Total ceiling ≈ 90s.
+_PRIMARY_DEADLINE_S = 60.0
+_FALLBACK_TIMEOUT_S = 30.0
 
 
 class LLMUnavailableError(Exception):
@@ -64,7 +70,10 @@ class GrokClient:
     ) -> None:
         self.model = model
         self.fallback_model = fallback_model
-        self.sdk = sdk or OpenAI(api_key=api_key, base_url=base_url)
+        # max_retries=0 disables the SDK's own retry layer; our outer loop
+        # is the only source of retries so per-attempt latency stays bounded
+        # by the request timeout (no hidden 3× multiplier).
+        self.sdk = sdk or OpenAI(api_key=api_key, base_url=base_url, max_retries=0)
 
     def _retry_delay(self, attempt: int, exc: Exception) -> float:
         """Exponential backoff with jitter, capped. Honors Retry-After on 429."""
@@ -87,10 +96,14 @@ class GrokClient:
         user: str,
         schema: type[T],
         max_retries: int,
+        deadline: float,
+        on_attempt: Callable[[str], None] | None = None,
     ) -> tuple[T, CallMeta]:
         """grok-4 retry loop. Retries transient errors; raises typed exceptions otherwise."""
         last_exc: Exception | None = None
         for attempt in range(1, _MAX_ATTEMPTS + 1):
+            if time.monotonic() >= deadline:
+                break
             try:
                 return self._call_once(
                     model=model,
@@ -98,6 +111,7 @@ class GrokClient:
                     user=user,
                     schema=schema,
                     max_retries=max_retries,
+                    on_attempt=on_attempt,
                 )
             except AuthenticationError as e:
                 raise LLMConfigurationError("Grok API key invalid or missing.") from e
@@ -131,6 +145,7 @@ class GrokClient:
         user: str,
         schema: type[T],
         max_retries: int,
+        on_attempt: Callable[[str], None] | None = None,
     ) -> tuple[T, CallMeta]:
         """One SDK call with inner Pydantic-validation retry loop."""
         attempts = 0
@@ -150,6 +165,8 @@ class GrokClient:
                         f"{last_error}\nReturn corrected JSON only."
                     ),
                 })
+            if on_attempt is not None:
+                on_attempt(model)
             resp = self.sdk.chat.completions.create(  # type: ignore[call-overload]
                 model=model,
                 messages=messages,
@@ -180,8 +197,15 @@ class GrokClient:
         user: str,
         schema: type[T],
         max_retries: int = 1,
+        on_attempt: Callable[[str], None] | None = None,
     ) -> tuple[T, CallMeta]:
-        """LLM call with retry on grok-4, then optional single fallback to grok-3."""
+        """LLM call with retry on grok-4, then optional single fallback to grok-3.
+
+        on_attempt: optional callback invoked with the model name just before
+        each SDK call. Lets agents emit per-attempt telemetry (e.g. `llm.attempt`
+        events) so a run log shows whether the fallback model was actually tried.
+        """
+        primary_deadline = time.monotonic() + _PRIMARY_DEADLINE_S
         try:
             return self._call_with_retry(
                 model=self.model,
@@ -189,18 +213,23 @@ class GrokClient:
                 user=user,
                 schema=schema,
                 max_retries=max_retries,
+                deadline=primary_deadline,
+                on_attempt=on_attempt,
             )
         except LLMUnavailableError:
             if not self.fallback_model:
                 raise
             prefixed_system = f"Today's date is {date.today().isoformat()}.\n\n{system}"
+            # Fallback is one-shot (max_retries=0): a single SDK call bounded
+            # by the 30s request timeout, so the fallback budget holds.
             try:
                 return self._call_once(
                     model=self.fallback_model,
                     system=prefixed_system,
                     user=user,
                     schema=schema,
-                    max_retries=max_retries,
+                    max_retries=0,
+                    on_attempt=on_attempt,
                 )
             except AuthenticationError as e:
                 raise LLMConfigurationError("Grok API key invalid or missing.") from e
