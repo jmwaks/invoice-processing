@@ -5,6 +5,8 @@ export type FieldKey =
   | "invoice_number"
   | "date"
   | "due_date"
+  | "subtotal"
+  | "tax_amount"
   | "total"
   | `items.${number}.item`
   | `items.${number}.quantity`
@@ -19,7 +21,6 @@ const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 
 // Tolerance for money comparisons, in dollars.
 // Matches backend TOTAL_TOLERANCE in backend/app/agents/validate.py.
-// @ts-ignore TS6133 - used in relationship checks added in next plan task
 const TOTAL_TOLERANCE = 1.0;
 
 /**
@@ -43,8 +44,31 @@ export function validateDraft(draft: InvoiceData): ValidationResult {
   if (draft.date && !DATE_RE.test(draft.date)) errors.date = "use YYYY-MM-DD";
   if (draft.due_date && !DATE_RE.test(draft.due_date)) errors.due_date = "use YYYY-MM-DD";
 
-  if (draft.total === null || draft.total === undefined || isNaN(draft.total) || draft.total < 0) {
+  // Total is required.
+  if (draft.total === null || draft.total === undefined) {
     errors.total = "must be ≥ 0";
+  } else if (isNaN(draft.total)) {
+    errors.total = "must be a number";
+  } else if (draft.total < 0) {
+    errors.total = "must be ≥ 0";
+  }
+
+  // Subtotal is optional; if present, must be a non-negative number.
+  if (draft.subtotal !== null && draft.subtotal !== undefined) {
+    if (isNaN(draft.subtotal)) {
+      errors.subtotal = "must be a number";
+    } else if (draft.subtotal < 0) {
+      errors.subtotal = "must be ≥ 0";
+    }
+  }
+
+  // Tax is optional; if present, must be a non-negative number.
+  if (draft.tax_amount !== null && draft.tax_amount !== undefined) {
+    if (isNaN(draft.tax_amount)) {
+      errors.tax_amount = "must be a number";
+    } else if (draft.tax_amount < 0) {
+      errors.tax_amount = "must be ≥ 0";
+    }
   }
 
   draft.line_items.forEach((it, i) => {
@@ -52,18 +76,48 @@ export function validateDraft(draft: InvoiceData): ValidationResult {
     if (!Number.isInteger(it.quantity) || it.quantity < 1) {
       errors[`items.${i}.quantity`] = "must be a positive integer";
     }
-    if (it.unit_price !== null && (isNaN(it.unit_price) || it.unit_price < 0)) {
-      errors[`items.${i}.unit_price`] = "must be ≥ 0";
+    if (it.unit_price !== null && it.unit_price !== undefined) {
+      if (isNaN(it.unit_price)) {
+        errors[`items.${i}.unit_price`] = "must be a number";
+      } else if (it.unit_price < 0) {
+        errors[`items.${i}.unit_price`] = "must be ≥ 0";
+      }
     }
   });
 
-  // Soft warning: total mismatch with sum of line items (within 1¢).
-  if (draft.total !== null && !errors.total) {
-    const sum = draft.line_items.reduce(
-      (acc, it) => acc + (it.unit_price ?? 0) * it.quantity,
-      0,
-    );
-    if (Math.abs(sum - draft.total) > 0.01) {
+  const lineItemSum = draft.line_items.reduce(
+    (acc, it) => acc + (it.unit_price ?? 0) * it.quantity,
+    0,
+  );
+
+  // Relationship check #1: line items vs subtotal.
+  if (draft.subtotal !== null && draft.subtotal !== undefined && !errors.subtotal) {
+    if (Math.abs(lineItemSum - draft.subtotal) > TOTAL_TOLERANCE) {
+      warnings.subtotal = "doesn't match item total";
+    }
+  }
+
+  // Relationship check #2: subtotal + tax vs total.
+  if (
+    draft.subtotal !== null && draft.subtotal !== undefined &&
+    draft.total !== null && draft.total !== undefined &&
+    !errors.subtotal && !errors.total
+  ) {
+    const expected = draft.subtotal + (draft.tax_amount ?? 0);
+    if (Math.abs(expected - draft.total) > TOTAL_TOLERANCE) {
+      warnings.total = "doesn't match subtotal + tax";
+    }
+  }
+
+  // Relationship check #3 (fallback): line items vs total when subtotal is null.
+  // Mirrors backend validate.py:151.
+  if (
+    (draft.subtotal === null || draft.subtotal === undefined) &&
+    draft.total !== null && draft.total !== undefined &&
+    !errors.total &&
+    draft.line_items.length > 0
+  ) {
+    if (Math.abs(lineItemSum - draft.total) > TOTAL_TOLERANCE) {
       warnings.total = "doesn't match item total";
     }
   }
