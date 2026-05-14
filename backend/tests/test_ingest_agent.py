@@ -196,7 +196,6 @@ def test_ingest_rejects_llm_response_with_banned_suspicion_kind(tmp_path: Path):
     })
 
     sdk = _make_sdk_returning(bad_response)
-    # max_retries=0 so we don't waste two stubbed responses on the same failure.
     llm = GrokClient(sdk=sdk, model="grok-3-test")
 
     state = _mk_state(str(inv_file))

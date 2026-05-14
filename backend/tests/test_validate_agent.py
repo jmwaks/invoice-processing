@@ -1,7 +1,7 @@
 import datetime as dt
 from pathlib import Path
 
-from app.agents.validate import run_validate
+from app.agents.validate import _check_future_date, run_validate
 from app.db.init_db import init_db
 from app.graph.state import InvoiceData, InvoiceState, LineItem
 from app.logging_.event_emitter import EventEmitter
@@ -443,11 +443,6 @@ def test_duplicate_invoice_handles_missing_prior_log_gracefully(tmp_path: Path):
     assert "duplicate_invoice" in kinds
     event_kinds = [e.get("kind") for e in state.events]
     assert "duplicate_detected_retroactive_skipped" in event_kinds
-
-
-import datetime as dt
-
-from app.agents.validate import _check_future_date
 
 
 def test_check_future_date_empty_when_date_none():
