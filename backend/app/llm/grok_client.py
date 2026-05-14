@@ -4,6 +4,7 @@ import json
 import random
 import time
 from dataclasses import dataclass
+from datetime import date
 from time import perf_counter
 from typing import TypeVar, cast
 
@@ -180,11 +181,38 @@ class GrokClient:
         schema: type[T],
         max_retries: int = 1,
     ) -> tuple[T, CallMeta]:
-        """LLM call with HTTP retry on transient errors, then Pydantic validation retry."""
-        return self._call_with_retry(
-            model=self.model,
-            system=system,
-            user=user,
-            schema=schema,
-            max_retries=max_retries,
-        )
+        """LLM call with retry on grok-4, then optional single fallback to grok-3."""
+        try:
+            return self._call_with_retry(
+                model=self.model,
+                system=system,
+                user=user,
+                schema=schema,
+                max_retries=max_retries,
+            )
+        except LLMUnavailableError:
+            if not self.fallback_model:
+                raise
+            prefixed_system = f"Today's date is {date.today().isoformat()}.\n\n{system}"
+            try:
+                return self._call_once(
+                    model=self.fallback_model,
+                    system=prefixed_system,
+                    user=user,
+                    schema=schema,
+                    max_retries=max_retries,
+                )
+            except AuthenticationError as e:
+                raise LLMConfigurationError("Grok API key invalid or missing.") from e
+            except PermissionDeniedError as e:
+                raise LLMConfigurationError("Grok API access denied.") from e
+            except NotFoundError as e:
+                raise LLMConfigurationError(
+                    "Configured Grok fallback model not found."
+                ) from e
+            except (RateLimitError, APIConnectionError, APITimeoutError) as e:
+                raise LLMUnavailableError() from e
+            except APIStatusError as e:
+                if e.status_code < 500:
+                    raise
+                raise LLMUnavailableError() from e

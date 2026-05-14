@@ -187,3 +187,37 @@ def test_bad_request_re_raised_as_is(monkeypatch):
     with pytest.raises(BadRequestError):
         client.structured_complete(system="s", user="u", schema=Toy)
     assert mock_sdk.chat.completions.create.call_count == 1
+
+
+def test_falls_back_to_grok3_after_exhaustion(monkeypatch):
+    """3 RateLimitError on grok-4, then grok-3 succeeds. Assert 4th call uses grok-3 + date prefix.
+    """
+    monkeypatch.setattr("app.llm.grok_client.time.sleep", lambda s: None)
+    monkeypatch.setattr("app.llm.grok_client.random.uniform", lambda a, b: 0.0)
+
+    good_resp = MagicMock()
+    good_resp.choices = [MagicMock(message=MagicMock(content='{"a": 9, "b": "ok"}'))]
+    good_resp.usage = MagicMock(prompt_tokens=3, completion_tokens=2)
+
+    mock_sdk = MagicMock()
+    mock_sdk.chat.completions.create.side_effect = [
+        _rate_limit_error(),
+        _rate_limit_error(),
+        _rate_limit_error(),
+        good_resp,
+    ]
+
+    client = GrokClient(model="grok-4", fallback_model="grok-3", sdk=mock_sdk)
+    parsed, meta = client.structured_complete(
+        system="extract things", user="data", schema=Toy,
+    )
+
+    assert parsed == Toy(a=9, b="ok")
+    assert mock_sdk.chat.completions.create.call_count == 4
+    assert meta.model == "grok-3"
+
+    fallback_call = mock_sdk.chat.completions.create.call_args_list[3]
+    assert fallback_call.kwargs["model"] == "grok-3"
+    system_msg = fallback_call.kwargs["messages"][0]["content"]
+    assert system_msg.startswith("Today's date is ")
+    assert "extract things" in system_msg
