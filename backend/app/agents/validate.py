@@ -26,7 +26,7 @@ EXPECTED_CURRENCY = "USD"  # payment pipeline assumes USD; flag others for revie
 # verbatim from the source, so "$" is a legitimate USD marker — not a
 # mismatch. Non-USD aliases (€, £, ¥) normalize to ISO codes so the
 # warn detail is readable, but they still trigger currency_mismatch.
-CURRENCY_ALIASES: dict[str, str] = {
+_CURRENCY_ALIASES: dict[str, str] = {
     "$": "USD", "US$": "USD", "USD$": "USD",
     "€": "EUR", "EUR€": "EUR",
     "£": "GBP", "GBP£": "GBP",
@@ -36,7 +36,7 @@ CURRENCY_ALIASES: dict[str, str] = {
 
 def _normalize_currency(raw: str) -> str:
     code = raw.strip().upper()
-    return CURRENCY_ALIASES.get(code, code)
+    return _CURRENCY_ALIASES.get(code, code)
 
 
 def _check_required_fields(inv: InvoiceData) -> list[ValidationIssue]:
