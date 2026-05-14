@@ -12,7 +12,7 @@ from app.graph.state import (
     Proposal,
     ToolCall,
 )
-from app.llm.grok_client import CallMeta, GrokClient
+from app.llm.grok_client import CallMeta, GrokClient, LLMConfigurationError, LLMUnavailableError
 from app.llm.tools_loop import run_tool_loop
 from app.logging_.event_emitter import EventEmitter
 from app.rules.engine import RuleEvaluation, evaluate_rules
@@ -132,6 +132,8 @@ def _run_critique(
         _emit_llm(emitter, "critique", meta)
         emitter.emit("approve.critique.complete", node="approve", output=critique.model_dump())
         return critique, False
+    except (LLMUnavailableError, LLMConfigurationError):
+        raise
     except Exception as e:
         _logger.exception("approve: critique pass failed")
         emitter.emit("approve.critique.complete", node="approve", output={"error": str(e)})
@@ -175,6 +177,8 @@ def _run_investigate(
             system=INVESTIGATE_SYSTEM, user=context,
             tools_schema=TOOL_SCHEMAS, dispatch=_dispatch, max_iterations=4,
         )
+    except (LLMUnavailableError, LLMConfigurationError):
+        raise
     except Exception as e:
         _logger.exception("approve: investigate pass failed")
         emitter.emit("approve.investigate.complete", node="approve", output={"error": str(e)})

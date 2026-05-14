@@ -15,6 +15,7 @@ from app.api.decisions import effective_outcome
 from app.api.runs import Run, RunRegistry
 from app.api.sse import sse_response
 from app.graph.state import InvoiceData, InvoiceState
+from app.llm.grok_client import LLMConfigurationError, LLMUnavailableError
 from app.parsers.file_loader import load_invoice_file
 
 _logger = logging.getLogger(__name__)
@@ -37,6 +38,14 @@ def build_router(*, registry: RunRegistry, db_path: Path, graph: Any) -> APIRout
             # LangGraph returns the final state as a dict; sync it back so
             # /api/runs summaries reflect the actual outcome instead of "running".
             run.state = InvoiceState.model_validate(final)
+        except LLMUnavailableError as e:
+            _logger.warning("LLM unavailable for run %s: %s", run_id, e)
+            run.state.error = e.user_message
+            run.emitter.emit("run.error", error=e.user_message)
+        except LLMConfigurationError as e:
+            _logger.error("LLM configuration error for run %s: %s", run_id, e)
+            run.state.error = e.user_message
+            run.emitter.emit("run.error", error=e.user_message)
         except Exception as e:
             _logger.exception("graph run failed for %s", run_id)
             run.state.error = f"graph crashed: {e}"

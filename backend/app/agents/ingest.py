@@ -7,7 +7,7 @@ from pydantic import BaseModel
 
 from app.agents.homoglyph_check import detect_homoglyphs
 from app.graph.state import InvoiceData, InvoiceState, SuspicionSignal
-from app.llm.grok_client import GrokClient
+from app.llm.grok_client import GrokClient, LLMConfigurationError, LLMUnavailableError
 from app.logging_.event_emitter import EventEmitter
 from app.parsers.file_loader import load_invoice_file
 
@@ -90,6 +90,8 @@ def run_ingest(state: InvoiceState, *, llm: GrokClient, emitter: EventEmitter) -
         parsed, meta = llm.structured_complete(
             system=SYSTEM_PROMPT, user=user, schema=IngestResponse, max_retries=1,
         )
+    except (LLMUnavailableError, LLMConfigurationError):
+        raise
     except Exception as e:
         _logger.exception("ingest: LLM extraction failed for %s", state.source_path)
         state.error = f"unprocessable: extraction failed ({e})"

@@ -168,3 +168,34 @@ def test_effective_outcome_prefers_in_memory_decision_over_event_log(tmp_path: P
     eo = effective_outcome(run_id, log_dir=log_dir, base_outcome="approved")
     assert eo.outcome == "approved"
     assert eo.override_reason is None
+
+
+def test_run_graph_surfaces_clean_message_on_llm_unavailable(tmp_path: Path):
+    """When the graph raises LLMUnavailableError, run.state.error is the clean message."""
+    import time as _time
+    from app.llm.grok_client import LLMUnavailableError
+
+    db = tmp_path / "api.db"
+    init_db(db, seed_path=SEED, reset=True)
+
+    fake_llm = MagicMock()
+    fake_llm.structured_complete.side_effect = LLMUnavailableError()
+    app = create_app(llm=fake_llm, db_path=db, log_dir=tmp_path / "logs")
+
+    body: dict
+    with TestClient(app) as client:
+        with INVOICE_1001.open("rb") as f:
+            resp = client.post("/api/runs", files={"file": (INVOICE_1001.name, f, "text/plain")})
+        assert resp.status_code == 200
+        run_id = resp.json()["run_id"]
+
+        # Poll briefly until the run completes; in-test runs are fast.
+        for _ in range(50):
+            run_resp = client.get(f"/api/runs/{run_id}")
+            body = run_resp.json()
+            if body.get("error") is not None:
+                break
+            _time.sleep(0.02)
+
+    assert body["error"] == "Grok is temporarily at capacity. Please retry in a moment."
+    assert "graph crashed" not in body["error"]
