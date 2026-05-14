@@ -27,18 +27,21 @@ Rules:
 - Extract values verbatim from the source. Do not invent values.
 - If a field is missing or unreadable, return null. Do not guess.
 - Dates use YYYY-MM-DD. If the source says "yesterday" or another relative term,
-  return null and note it as a suspicion signal.
+  return null. (A null date is itself visible downstream — no signal needed.)
 - Quantities are integers; preserve negative values as written.
 - Flag suspicion signals for any of:
   * urgent / threatening language ("URGENT", "pay immediately", "wire transfer")
-  * dates in the past or expressed as "yesterday"
-  * round-number totals on otherwise odd line items
   * generic or alarming vendor names
   * unknown / made-up looking item names
   * homoglyph corruption: invoice numbers or dates where letters substitute
     for digits (O<->0, l<->1, I<->1, B<->8, S<->5, Z<->2), or the literal
     word "INVOICE" mangled (e.g. "INV0ICE"). Emit kind='homoglyph_corruption'
     with text_match set to the exact corrupted token from the source.
+- Do NOT emit signals about dates, totals, arithmetic, or other claims
+  derivable from the extracted fields — these are checked deterministically
+  after extraction. Emit only signals about the wording, naming, or visual
+  integrity of the source text. Valid kinds are: urgent_language,
+  unknown_vendor_pattern, wire_transfer_demand, homoglyph_corruption, other.
 - For each suspicion signal, when possible, set `text_match` to the EXACT verbatim
   phrase from the source that triggered the signal (e.g. "wire transfer required
   within 24 hours"). The phrase must appear in the source character-for-character.
