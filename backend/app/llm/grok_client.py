@@ -1,11 +1,13 @@
 from __future__ import annotations
 
 import json
+import random
+import time
 from dataclasses import dataclass
 from time import perf_counter
-from typing import TypeVar
+from typing import TypeVar, cast
 
-from openai import OpenAI
+from openai import OpenAI, RateLimitError
 from pydantic import BaseModel, ValidationError
 
 T = TypeVar("T", bound=BaseModel)
@@ -53,6 +55,46 @@ class GrokClient:
         self.model = model
         self.fallback_model = fallback_model
         self.sdk = sdk or OpenAI(api_key=api_key, base_url=base_url)
+
+    def _retry_delay(self, attempt: int, exc: Exception) -> float:
+        """Exponential backoff with jitter, capped. Honors Retry-After on 429."""
+        if isinstance(exc, RateLimitError) and exc.response is not None:
+            retry_after = exc.response.headers.get("retry-after")
+            if retry_after is not None:
+                try:
+                    return min(float(retry_after), _MAX_DELAY_S)
+                except ValueError:
+                    pass
+        base = min(_BASE_DELAY_S * (2 ** (attempt - 1)), _MAX_DELAY_S)
+        jitter = random.uniform(-base * 0.25, base * 0.25)
+        return cast(float, max(0.0, base + jitter))
+
+    def _call_with_retry(
+        self,
+        *,
+        model: str,
+        system: str,
+        user: str,
+        schema: type[T],
+        max_retries: int,
+    ) -> tuple[T, CallMeta]:
+        """grok-4 retry loop. Retries RateLimitError; raises LLMUnavailableError on exhaustion."""
+        last_exc: Exception | None = None
+        for attempt in range(1, _MAX_ATTEMPTS + 1):
+            try:
+                return self._call_once(
+                    model=model,
+                    system=system,
+                    user=user,
+                    schema=schema,
+                    max_retries=max_retries,
+                )
+            except RateLimitError as e:
+                last_exc = e
+                if attempt == _MAX_ATTEMPTS:
+                    break
+                time.sleep(self._retry_delay(attempt, e))
+        raise LLMUnavailableError() from last_exc
 
     def _call_once(
         self,
@@ -112,8 +154,8 @@ class GrokClient:
         schema: type[T],
         max_retries: int = 1,
     ) -> tuple[T, CallMeta]:
-        """LLM call with retry on Pydantic validation failure."""
-        return self._call_once(
+        """LLM call with HTTP retry on transient errors, then Pydantic validation retry."""
+        return self._call_with_retry(
             model=self.model,
             system=system,
             user=user,
