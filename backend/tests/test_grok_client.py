@@ -239,7 +239,7 @@ def test_fallback_disabled_raises_when_empty(monkeypatch):
 
 
 def test_total_attempt_budget_is_bounded(monkeypatch):
-    """All 4 calls (3 grok-4 + 1 grok-3) raise 429. Assert exactly 4 SDK calls, LLMUnavailableError."""
+    """3 grok-4 + 1 grok-3 all raise 429. Assert exactly 4 SDK calls and LLMUnavailableError."""
     monkeypatch.setattr("app.llm.grok_client.time.sleep", lambda s: None)
     monkeypatch.setattr("app.llm.grok_client.random.uniform", lambda a, b: 0.0)
 
@@ -251,3 +251,30 @@ def test_total_attempt_budget_is_bounded(monkeypatch):
     with pytest.raises(LLMUnavailableError):
         client.structured_complete(system="s", user="u", schema=Toy)
     assert mock_sdk.chat.completions.create.call_count == 4
+
+
+def test_validation_retry_still_works_with_fallback_enabled(monkeypatch):
+    """Pydantic validation retry must not trigger fallback. Invalid-shape then valid on grok-4."""
+    monkeypatch.setattr("app.llm.grok_client.time.sleep", lambda s: None)
+
+    bad_resp = MagicMock()
+    bad_resp.choices = [MagicMock(message=MagicMock(content='{"a": "not_an_int", "b": "hi"}'))]
+    bad_resp.usage = MagicMock(prompt_tokens=10, completion_tokens=5)
+    good_resp = MagicMock()
+    good_resp.choices = [MagicMock(message=MagicMock(content='{"a": 7, "b": "hi"}'))]
+    good_resp.usage = MagicMock(prompt_tokens=12, completion_tokens=6)
+
+    mock_sdk = MagicMock()
+    mock_sdk.chat.completions.create.side_effect = [bad_resp, good_resp]
+
+    client = GrokClient(model="grok-4", fallback_model="grok-3", sdk=mock_sdk)
+    parsed, meta = client.structured_complete(
+        system="extract", user="data", schema=Toy, max_retries=1,
+    )
+
+    assert parsed == Toy(a=7, b="hi")
+    assert mock_sdk.chat.completions.create.call_count == 2
+    assert meta.model == "grok-4"  # NOT fallback
+    # The retry was a validation retry (extra user message appended), not a fallback.
+    second_call_messages = mock_sdk.chat.completions.create.call_args_list[1].kwargs["messages"]
+    assert "failed validation" in second_call_messages[-1]["content"]
