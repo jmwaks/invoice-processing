@@ -2,7 +2,7 @@
 
 A 5-minute walkthrough of the three eval-criteria highlights: **agentic tool use**, **reconciliation / retry**, and **business-impact metrics**.
 
-> UI references on this page match the `feature/ui-improvement` branch (Case File redesign). See [README.md](../README.md) for the high-level tour and screenshots.
+> See [README.md](../README.md) for the high-level tour, screenshots, and install steps.
 
 ## Prerequisites
 
@@ -68,16 +68,16 @@ Compare with a simple case: from the batch overview, click the `INV-1001` sample
 
 **Demo:**
 
-1. Refresh the page for a clean session, then click **Run all 16** in the top bar.
+1. Refresh the page for a clean session, then click **Run all** in the top bar.
 2. Watch the metrics band update as runs complete:
-   - **Runs processed** → 16
+   - **Runs processed** → number of files in `backend/data/invoices/` (25 with the shipped sample set)
    - **Auto-approved** → count + `(%)` cleared without scrutiny
    - **Avg processing time** → real seconds, with sub-label `vs. ~5 days manual`
    - **Total approved** → dollar value cleared
-   - **Simulated savings** → `$192` (16 × $12 default manual cost)
+   - **Simulated savings** → `runs × $12` default manual cost (e.g. `$300` for 25 runs)
 3. The batch overview header shows a progress bar; the left rail's session card mirrors it. Up to 4 rows can be `Running` at a time (4-way semaphore in the backend).
 
-Want a bigger savings figure? Stop the backend, set `MANUAL_COST_PER_INVOICE_USD=25` in `backend/.env`, restart, refresh — savings jumps to `$400`.
+Want a bigger savings figure? Stop the backend, set `MANUAL_COST_PER_INVOICE_USD=25` in `backend/.env`, restart, refresh — savings scales accordingly.
 
 **Talking point:** "$12/invoice is an industry benchmark for fully-loaded AP manual processing. Plug in your org's number and the savings figure tracks with reality. The `vs. ~5 days manual` sub-label is the eval-criterion payoff in one phrase."
 
