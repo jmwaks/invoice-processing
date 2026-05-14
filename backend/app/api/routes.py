@@ -11,6 +11,7 @@ from fastapi import APIRouter, File, HTTPException, Request, UploadFile
 from pydantic import BaseModel
 from sse_starlette.sse import EventSourceResponse
 
+from app.api.decisions import effective_outcome
 from app.api.runs import Run, RunRegistry
 from app.api.sse import sse_response
 from app.graph.state import InvoiceData, InvoiceState
@@ -81,7 +82,11 @@ def build_router(*, registry: RunRegistry, db_path: Path, graph: Any) -> APIRout
         run = registry.get(run_id)
         if run is None:
             raise HTTPException(404)
-        return run.state.model_dump(mode="json")
+        payload = run.state.model_dump(mode="json")
+        payload["effective_outcome"] = effective_outcome(
+            run_id, log_dir=registry.log_dir,
+        ).model_dump(mode="json")
+        return payload
 
     @router.get("/runs")
     async def list_runs() -> list[dict[str, Any]]:
