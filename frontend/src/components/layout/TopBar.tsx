@@ -59,7 +59,7 @@ export function TopBar() {
           onClick={onRunAll}
           className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm rounded bg-indigo-600 text-white hover:bg-indigo-700"
         >
-          <Play size={16} /> Run all 16
+          <Play size={16} /> Run all
         </button>
       </div>
     </header>

@@ -2,8 +2,6 @@
 
 A working multi-agent prototype for the Galatiq case study ([brief](https://github.com/jmwaks/galatiq-case-invoices/blob/main/README.md)). Ingests invoices in six formats (PDF, TXT, JSON, CSV, XML, email), validates them against a SQLite inventory database, runs an approver with a peer-critique loop and on-demand tool use, and pays approved invoices or logs rejections — end-to-end in seconds, with the full reasoning trace visible in a "case file" web UI.
 
-**Branch under review:** `feature/ui-improvement` (this branch contains the case-file UI redesign; `main` has the prior dashboard.)
-
 ---
 
 ## Why this matters
@@ -12,8 +10,8 @@ Acme Corp's manual workflow loses $2M/year. This prototype addresses each pain p
 
 | Pain point | What this prototype does |
 |---|---|
-| **30% error rate** | Six classes of error caught automatically (missing vendor, negative quantity, unknown item, out-of-stock, overstock, price drift). The propose → critique → finalize loop catches what a single LLM pass would miss. |
-| **5-day delays** | Each invoice resolves in seconds. The **Run all 16** button processes the entire sample backlog in 4-way parallel while you watch. |
+| **30% error rate** | Eight classes of error caught automatically (missing vendor, negative quantity, unknown item, out-of-stock, overstock, price drift, math error, past due date). The propose → critique → finalize loop catches what a single LLM pass would miss. |
+| **5-day delays** | Each invoice resolves in seconds. The **Run all** button processes the entire sample backlog in 4-way parallel while you watch. |
 | **Frustrated stakeholders** | Every decision carries a written rationale tied to named rules. AP, vendors, and the VP read the same trace. |
 
 The dashboard's permanent metrics band translates technical outcomes into business numbers: runs processed, auto-approved share, average processing time vs. 5-day manual baseline, total dollars approved, and **simulated dollars saved** (`runs × MANUAL_COST_PER_INVOICE_USD`, default $12 — an industry benchmark for fully-loaded AP manual processing; override in `backend/.env`).
@@ -22,7 +20,7 @@ The dashboard's permanent metrics band translates technical outcomes into busine
 
 ## Screenshots
 
-**Batch overview mid-run** — metrics band live; runs table fills as agents process the 16 sample invoices in parallel; left rail shows retries indented under their parents.
+**Batch overview mid-run** — metrics band live; runs table fills as agents process the sample invoices in parallel; left rail shows retries indented under their parents.
 
 ![Batch overview](docs/screenshots/overview.png)
 
@@ -62,11 +60,11 @@ The brief specifies this CLI shape:
 python main.py --invoice_path=data/invoices/invoice1.txt
 ```
 
-The equivalent in this project (the module lives at `backend/app/main.py`, run from `backend/`):
+The equivalent in this project (the module lives at `backend/app/main.py`, run from `backend/` with the venv from step 1 activated):
 
 ```bash
 cd backend
-../.venv/bin/python -m app.main --invoice_path=data/invoices/invoice_1001.txt
+python -m app.main --invoice_path=data/invoices/invoice_1001.txt
 ```
 
 Useful flags:
@@ -93,7 +91,7 @@ npm install
 npm run dev                       # http://localhost:5173
 ```
 
-Open `http://localhost:5173`. The empty state offers three one-click samples (clean approval, fraud catch, OCR resilience), or drag any file from `backend/data/invoices/`, or click **Run all 16** to process the full backlog.
+Open `http://localhost:5173`. The empty state offers three one-click samples (clean approval, fraud catch, OCR resilience), or drag any file from `backend/data/invoices/`, or click **Run all** to process the full backlog (currently 25 sample files).
 
 ---
 
@@ -110,8 +108,6 @@ ingest → validate → approve → pay      (on approve)
 - **Validate** — deterministic SQL checks against `inventory` and approved-vendors tables. Surfaces eight failure modes (missing vendor, negative quantity, unknown item, out-of-stock, overstock, price drift, math error, past due date).
 - **Approve** — investigate phase (tool-using on middle-band cases), then three sequential Grok calls: proposer → adversarial critic → finalizer. During investigate the LLM may call `lookup_inventory`, `lookup_vendor`, or `recompute_totals` via xAI's function-calling API; results land on `Decision.tool_calls` and render in the UI. A rule engine (`backend/app/rules/rules.yaml`) provides hard blocks and gate thresholds; the LLM cannot override hard blocks.
 - **Pay / Log** — mock payment API or structured rejection log, both persisted to the run record.
-
-Full design spec: [`docs/superpowers/specs/2026-05-13-invoice-processing-design.md`](docs/superpowers/specs/2026-05-13-invoice-processing-design.md). UI redesign spec: [`docs/superpowers/specs/2026-05-13-ui-redesign-case-file.md`](docs/superpowers/specs/2026-05-13-ui-redesign-case-file.md).
 
 ---
 
@@ -135,8 +131,8 @@ Full table in [`backend/tests/expected_outcomes.yaml`](backend/tests/expected_ou
 ```bash
 source .venv/bin/activate
 cd backend
-pytest -q                          # 101 unit + golden integration (mocked LLM, deterministic)
-RUN_LIVE_TESTS=1 pytest -q         # adds live-LLM smoke test against the real Grok API
+pytest -q                          # unit + golden integration (mocked LLM, deterministic)
+RUN_LIVE_TESTS=1 pytest -q         # adds live-LLM smoke tests against the real Grok API
 ```
 
 Frontend type-check and build:
@@ -155,7 +151,7 @@ LLM fixtures are recorded with `make -C backend record-fixtures` (requires API k
 
 | Criterion | Where to look |
 |---|---|
-| **Functionality (end-to-end)** | `make -C backend demo` runs all 16 invoices. UI's "Run all 16" does the same with live progress. Outcomes vs. expectations: `backend/tests/test_integration.py`. |
+| **Functionality (end-to-end)** | `make -C backend demo` runs every invoice in `backend/data/invoices/`. UI's "Run all" does the same with live progress. Outcomes vs. expectations: `backend/tests/test_integration.py`. |
 | **Code Quality** | Type-annotated end-to-end (Pydantic v2 on backend, strict TypeScript on frontend). `make -C backend lint typecheck` clean. Bounded queues, context-managed resources, structured error responses, no swallowed errors. Conventions in [`CLAUDE.md`](CLAUDE.md). |
 | **Agentic Sophistication** | LangGraph orchestrator (`backend/app/graph/builder.py`). Function-calling on the approve agent (`backend/app/tools/`). Propose-critique-finalize self-correction in `backend/app/agents/approve.py`. Tool calls surface in the UI's **Agent reasoning** card. |
 | **Shipping Mindset** | MVP scope: 6 formats, 8 validation rules, 1 LLM (Grok). Persistence is intentionally in-memory (documented limitation). OCR not implemented; sample set uses string-normalization to exercise the related code path. |
@@ -180,7 +176,9 @@ backend/                       FastAPI + LangGraph + Grok
     parsers/                   six-format file_loader (txt/json/csv/xml/pdf/email)
     main.py                    CLI entry point
   tests/                       pytest (mocked + golden) + live smoke
-  data/invoices/               16 sample invoices in 5 formats
+  data/invoices/               sample invoices in 5 formats (PDF/TXT/JSON/CSV/XML);
+                               INV-1001..1016 mirror the brief, INV-9001..9005
+                               are added scenarios (duplicate, FX, math drift, etc.)
   Makefile                     install / seed / demo / test / lint / typecheck
 
 frontend/                      Vite + React 18 + TypeScript + Tailwind + zustand
@@ -214,7 +212,7 @@ docs/
 
 ## Notes for the reviewer
 
-- The branch under review is `feature/ui-improvement`. The Case File UI on this branch supersedes the dashboard on `main`.
 - `XAI_API_KEY` is required for live runs; without it, ingest fails fast with a clear message. Mocked tests run offline.
+- `backend/.env` is gitignored — copy from `backend/.env.example` and fill in your key (the seed step and tests don't need the key).
 - If the frontend can't reach the backend, check that uvicorn is on port 8000 (the Vite dev server proxies `/api/*` per `frontend/vite.config.ts`).
-- The full demo runbook is in [`docs/DEMO.md`](docs/DEMO.md). Some references in that doc point to UI components from the prior dashboard (renamed/replaced in this branch); the substance of the scenarios is unchanged.
+- The full demo runbook is in [`docs/DEMO.md`](docs/DEMO.md).
