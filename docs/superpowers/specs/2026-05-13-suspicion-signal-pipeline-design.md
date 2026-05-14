@@ -97,8 +97,9 @@ Tests inject a fixed `today` via the kwarg. Per CLAUDE.md ("Tests must be determ
 
 Update `SYSTEM_PROMPT`:
 
-- **Remove** the bullet `"dates in the past or expressed as 'yesterday'"`.
-- **Remove** the bullet `"round-number totals on otherwise odd line items"`.
+- **Remove** the bullet `"dates in the past or expressed as 'yesterday'"` from the "Flag suspicion signals for any of:" list.
+- **Remove** the bullet `"round-number totals on otherwise odd line items"` from the same list.
+- **Revise** the higher-up instruction that currently reads *"If the source says 'yesterday' or another relative term, return null and note it as a suspicion signal."* — strip the trailing "and note it as a suspicion signal" half so it reads simply: *"If the source says 'yesterday' or another relative term, return null."* The null date is itself visible to downstream code; no signal is needed.
 - **Add** an explicit guardrail line: `"Do NOT emit signals about dates, totals, arithmetic, or other claims derivable from the extracted fields — these are checked deterministically after extraction. Emit only signals about the wording, naming, or visual integrity of the source text."`
 
 No code-path changes in `run_ingest`. The existing `detect_homoglyphs` deterministic floor stays.
@@ -160,9 +161,9 @@ with pytest.raises(ValidationError):
 
 ### Prompt-drift defense test
 
-Stub `GrokClient.structured_complete` to return a raw JSON response containing a `SuspicionSignal` with `kind="impossible_date"`. Assert that the pydantic schema rejects it and `run_ingest` sets `state.error` to a value starting with `"unprocessable: extraction failed"`.
+Simulate the LLM emitting a banned kind by stubbing the SDK call inside `GrokClient` (below `structured_complete`) to return a raw JSON body whose `suspicion_signals` contains `{"kind": "impossible_date", ...}`. The real pydantic validation inside `structured_complete` should reject it, and `run_ingest` should set `state.error` to a value starting with `"unprocessable: extraction failed"`.
 
-This pins the contract at the ingest boundary: even if the prompt regresses, the schema fails fast and loudly rather than silently propagating the bad signal.
+This pins the contract at the ingest boundary: even if the prompt regresses, the schema fails fast and loudly rather than silently propagating the bad signal. The exact stubbing layer is an implementation detail for the plan — the requirement is that the test exercises real schema validation, not a mocked-out version.
 
 ### Existing tests to audit
 
@@ -185,3 +186,83 @@ Grep `backend/tests/` for `impossible_date`, `round_number`. Any fixture asserti
 - **Trade-off: warn vs. block for `future_date`.** Warn was chosen for consistency with `past_due_date` and to avoid blocking legitimate scheduled/pre-billing invoices. If false-negatives on far-future dates become a problem, the tiered-severity variant is a small follow-up.
 - **Risk: legitimate "round_number" cases get missed.** Considered. The argument for keeping it was always that a round total with non-round line items might indicate fabrication. But `total_math_error` already catches every case where the numbers don't reconcile; a fabricated invoice whose math reconciles is indistinguishable from a real one with round prices. The signal carried no actionable information.
 - **Path not taken: unified Signal stream.** Cleaner end-state but touches the rules engine, the `Decision`/`Critique` payloads, the SSE event shapes, and the frontend casefile rendering. The two-pipeline split with strict ownership achieves the same robustness with surgical changes.
+
+## Verification
+
+**Date:** 2026-05-13  
+**Branch:** feature/ui-improvement  
+**Verified by:** Task 8 (end-to-end verification)
+
+### Full test suite
+
+```
+149 passed, 26 skipped in 1.23s
+```
+
+All 149 tests pass. The 26 skipped are integration/live-smoke tests gated on `RUN_LIVE_TESTS=1` / `XAI_API_KEY` — intentionally offline-only. No regressions.
+
+### mypy
+
+mypy reports 4 pre-existing errors in 3 files (`app/llm/tools_loop.py`, `app/api/runs.py`, `app/tools/llm_tools.py`). **None of these are in files touched by this change.** No new errors introduced.
+
+### Replay tooling
+
+`backend/app/tools/replay.py` reads a `.jsonl` event trace from `backend/logs/<run_id>.jsonl` and summarises token usage, tool calls, and the stored `approve.decision` event. It does **not** re-run the pipeline — it reads persisted events. Invocation: `python -m app.tools.replay --run_id <id>`.
+
+The replay tool is a trace inspector, not a pipeline re-runner. A live LLM is **not** required for the validation checks below; the new `_check_future_date` is deterministic and was exercised directly.
+
+### INV-1006 — original trace (run `3f86ba97d7144ba7bcaa8e4f4d717758`)
+
+```
+replay output:
+  Run:      3f86ba97d7144ba7bcaa8e4f4d717758
+  Events:   25
+  LLM:      4 calls, 3072 in / 723 out, 21168ms total
+  Tools:    3
+  Outcome:  needs_review
+  Rules:    If scrutiny is required, weigh the validation warnings and suspicion signals
+  Rationale:
+    ...high-severity suspicion signal of an impossible date (future date 2026-01-25)
+    and the medium-severity round number concern (total 2750.00)...
+```
+
+Original `suspicion_signals`: `[{kind: impossible_date, severity: high}, {kind: round_number, severity: medium}]`  
+Original `validation.issues`: `[]` (empty)  
+Original `decision.outcome`: `needs_review`
+
+### INV-1006 — re-validation against new code (deterministic, no LLM required)
+
+`_check_future_date(inv, today=date(2026, 5, 13))` with `inv.date = date(2026, 1, 25)`:
+
+- Result: `[]` (empty) — 2026-01-25 is ~3.5 months in the **past**; no `future_date` issue emitted. CONFIRMED.
+- `impossible_date` and `round_number` are now banned Literal kinds — pydantic rejects them at schema boundary (verified by `test_suspicion_signal_rejects_impossible_date_kind` and `test_suspicion_signal_rejects_round_number_kind`).
+- With no signals and no validation issues, `evaluate_rules` returns `auto_approve=True` for INV-1006 (verified by `test_inv_1006_regression_past_date_round_total_clean_signals`).
+
+**Assertions met:**
+- `validation.issues` does NOT contain `future_date` — PASS
+- `suspicion_signals` does NOT contain `impossible_date` or `round_number` — PASS (schema-enforced)
+- `auto_approve=True` for INV-1006 — PASS (regression test confirms)
+
+### Spot-check second run — INV 1012 (run `0dbcf6f5fc4e4656b5e537fc1b328cb7`)
+
+Original: `suspicion_signals=[]`, `validation.issues=[]`, `decision.outcome=approved`  
+Re-validation: `_check_future_date(inv, today=date(2026, 5, 13))` with `inv.date=date(2026, 1, 26)` → `[]`
+
+Previously clean invoice stays clean. No regression. CONFIRMED.
+
+### Genuinely future date — correctness check
+
+`_check_future_date(inv, today=date(2026, 5, 13))` with `inv.date=date(2026, 12, 1)`:
+
+```
+[ValidationIssue(kind='future_date', severity='warn',
+  detail='invoice date 2026-12-01 is 202 day(s) in the future (today is 2026-05-13)')]
+```
+
+A genuinely future date now produces a `warn`-severity `future_date` ValidationIssue, which triggers `has_warn` scrutiny in the rules engine — same downstream effect as the old `impossible_date` high-severity signal, but deterministically correct. CONFIRMED.
+
+### Full replay (live LLM)
+
+Deferred — re-running the full pipeline for INV-1006 requires live `XAI_API_KEY` credentials not available in this environment. All deterministic checks confirm correct behavior. Live re-run is a follow-up for a credentialed environment; the regression test (`test_inv_1006_regression_past_date_round_total_clean_signals`) provides equivalent coverage offline.
+
+**Follow-up:** In production, watch the `pydantic ValidationError` rate from `app/agents/ingest.py` → `run_ingest`. If the LLM regresses and emits a banned kind, the error surfaces as `state.error = "unprocessable: extraction failed ..."` — monitor the `node.error` event stream for this pattern.
