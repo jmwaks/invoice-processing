@@ -10,6 +10,27 @@ from pydantic import BaseModel, ValidationError
 
 T = TypeVar("T", bound=BaseModel)
 
+_MAX_ATTEMPTS = 3
+_BASE_DELAY_S = 0.5
+_MAX_DELAY_S = 8.0
+
+
+class LLMUnavailableError(Exception):
+    """Transient capacity/connectivity failure after retries and fallback."""
+
+    user_message = "Grok is temporarily at capacity. Please retry in a moment."
+
+    def __init__(self, message: str | None = None) -> None:
+        super().__init__(message or self.user_message)
+
+
+class LLMConfigurationError(Exception):
+    """Non-transient config error (auth, bad model name). No retry helps."""
+
+    def __init__(self, user_message: str) -> None:
+        super().__init__(user_message)
+        self.user_message = user_message
+
 
 @dataclass
 class CallMeta:
