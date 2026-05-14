@@ -124,3 +124,38 @@ def test_suspicion_signal_text_match_round_trips_json():
     payload = sig.model_dump_json()
     restored = SuspicionSignal.model_validate_json(payload)
     assert restored.text_match == "URGENT — pay now"
+
+
+def test_suspicion_signal_rejects_impossible_date_kind():
+    """Banned kind: impossible_date is now owned by validate.py as `future_date`."""
+    from app.graph.state import SuspicionSignal
+
+    with pytest.raises(ValidationError):
+        SuspicionSignal(kind="impossible_date", detail="x", severity="high")
+
+
+def test_suspicion_signal_rejects_round_number_kind():
+    """Banned kind: round_number is dropped; total_math_error covers the real risk."""
+    from app.graph.state import SuspicionSignal
+
+    with pytest.raises(ValidationError):
+        SuspicionSignal(kind="round_number", detail="x", severity="medium")
+
+
+def test_suspicion_signal_still_accepts_textual_kinds():
+    """Remaining LLM-emitted kinds must still construct cleanly."""
+    from app.graph.state import SuspicionSignal
+
+    for kind in (
+        "urgent_language",
+        "unknown_vendor_pattern",
+        "wire_transfer_demand",
+        "homoglyph_corruption",
+        "other",
+    ):
+        SuspicionSignal(kind=kind, detail="x", severity="low")  # must not raise
+
+
+def test_validation_issue_accepts_future_date_kind():
+    """New kind: future_date — owned by validate.py."""
+    ValidationIssue(kind="future_date", detail="x", severity="warn")  # must not raise

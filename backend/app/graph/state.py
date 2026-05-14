@@ -30,8 +30,6 @@ class InvoiceData(BaseModel):
 class SuspicionSignal(BaseModel):
     kind: Literal[
         "urgent_language",
-        "impossible_date",
-        "round_number",
         "unknown_vendor_pattern",
         "wire_transfer_demand",
         "homoglyph_corruption",
@@ -55,6 +53,7 @@ class ValidationIssue(BaseModel):
         "no_line_items",
         "total_math_error",
         "past_due_date",
+        "future_date",
         "currency_mismatch",
         "duplicate_invoice",
     ]
