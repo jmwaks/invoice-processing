@@ -4,10 +4,17 @@ workspace "Acme AP — Invoice Processing" "C4 model for the invoice-processing 
         apOperator = person "AP Operator" "Drags invoices into the UI, reviews case files, retries with edits."
 
         acmeAp = softwareSystem "Acme AP — Invoice Processing" "Ingests invoices in six formats, validates against inventory, runs propose/critique/finalize approval, pays or logs." {
-            // containers added in Task 2
+            frontendSpa = container "Frontend SPA" "Batch dashboard and Case File pages. Talks to Backend API via REST and SSE." "React 18, Vite, TypeScript, Tailwind, zustand, wouter" "WebApp"
+            backendApi = container "Backend API" "REST endpoints under /api plus an SSE event stream per run." "FastAPI on uvicorn, Python 3.11+" "API"
+            orchestrator = container "Agent Orchestrator" "LangGraph state machine driving ingest -> validate -> approve -> pay/log. Shares the Backend API process." "Python, LangGraph"
+            cli = container "CLI" "Alternative entrypoint that uses the same Orchestrator and LLM Gateway but skips the API layer." "Python (python -m app.main)"
+            inventoryDb = container "Inventory DB" "Tables: inventory, vendors, paid_invoices. Persistent." "SQLite file (backend/data/inventory.db)" "Database"
+            runRegistry = container "Run Registry" "In-memory run state plus per-run JSONL event logs. Cleared on restart (documented limitation)." "Python object + JSONL files"
+            llmGateway = container "LLM Gateway" "Single seam to Grok with retries, structured output, and tool calls." "OpenAI SDK pointed at xAI"
         }
 
-        // external systems added in Task 2
+        grok = softwareSystem "xAI Grok API" "Hosted LLM used for invoice extraction, approval proposer, adversarial critic, finalizer, and tool-use (function calling)." "External"
+        mockPayment = softwareSystem "Mock Payment API" "Simulated payment side-effect performed by the pay agent. Records a receipt; no real money moves." "External"
         // relationships added in Task 3
     }
 
