@@ -39,6 +39,7 @@
 4. Summarize changes at each step
 5. Add a review section to `tasks/todo.md` when done
 6. Update `tasks/lessons.md` after any corrections
+7. **Architecture sync:** if your change adds, removes, or renames a container, agent node, API route, external system, datastore, or LLM tool, update `docs/architecture/workspace.dsl` in the same change. See `docs/architecture/README.md` for what each level covers.
 
 ## Core Principles
 - **Simplicity first**: Make every change as simple as possible; minimize code impact
