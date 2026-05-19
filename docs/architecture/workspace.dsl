@@ -70,7 +70,59 @@ workspace "Acme AP — Invoice Processing" "C4 model for the invoice-processing 
     }
 
     views {
-        // views added in Task 5
+        systemContext acmeAp "SystemContext" {
+            include *
+            autolayout lr
+            description "C1 — System Context. AP Operator interacts with the invoice processing system, which calls xAI Grok for LLM work and a mock payment API for the payment side-effect."
+        }
+
+        container acmeAp "Containers" {
+            include *
+            autolayout lr
+            description "C2 — Containers. The Backend API and Agent Orchestrator share a Python process; the CLI is an alternative entrypoint that bypasses the API."
+        }
+
+        component orchestrator "OrchestratorComponents" {
+            include *
+            autolayout lr
+            description "C3 — Components of the Agent Orchestrator. The LangGraph nodes (ingest, validate, approve, pay, log) plus supporting components (rules engine, LLM tools, file loader, event emitter)."
+        }
+
+        styles {
+            element "Person" {
+                shape Person
+                background "#1f3a5f"
+                color "#ffffff"
+            }
+            element "Software System" {
+                background "#2563eb"
+                color "#ffffff"
+            }
+            element "External" {
+                background "#94a3b8"
+                color "#ffffff"
+            }
+            element "Container" {
+                background "#3b82f6"
+                color "#ffffff"
+            }
+            element "Database" {
+                shape Cylinder
+                background "#0f766e"
+                color "#ffffff"
+            }
+            element "WebApp" {
+                shape WebBrowser
+            }
+            element "API" {
+                shape Hexagon
+            }
+            element "Component" {
+                background "#60a5fa"
+                color "#0f172a"
+            }
+        }
+
         theme default
     }
 }
