@@ -11,8 +11,8 @@ workspace "Acme AP — Invoice Processing" "C4 model for the invoice-processing 
                 invoiceState    = component "Invoice State"    "Pydantic state passed between nodes: InvoiceState, InvoiceData, Decision, Proposal, Critique, ToolCall, SuspicionSignal." "backend/app/graph/state.py"
                 fileLoader      = component "File Loader"      "Six-format dispatch: TXT / JSON / CSV / XML / PDF / email." "backend/app/parsers/file_loader.py"
                 ingestAgent     = component "Ingest Agent"     "One Grok call with structured output; emits suspicion signals; retries once on validation failure." "backend/app/agents/ingest.py"
-                homoglyphCheck  = component "Homoglyph Check"  "Detects letter-for-digit substitutions in invoice numbers and dates." "backend/app/agents/homoglyph_check.py"
-                validateAgent   = component "Validate Agent"   "Deterministic SQL checks; surfaces 8 failure modes (missing vendor, unknown item, etc.)." "backend/app/agents/validate.py"
+                homoglyphCheck  = component "Homoglyph Check"  "Detects letter-for-digit substitutions in invoice numbers, dates, and 'INVOICE' header text." "backend/app/agents/homoglyph_check.py"
+                validateAgent   = component "Validate Agent"   "Deterministic SQL checks; surfaces structured failure modes (unknown item, out-of-stock, math error, past due, duplicate, etc.). Also retroactively marks earlier duplicates in their JSONL logs." "backend/app/agents/validate.py"
                 approveAgent    = component "Approve Agent"    "Investigate (tool loop) -> propose -> critique -> finalize." "backend/app/agents/approve.py"
                 payAgent        = component "Pay Agent"        "Records payment, writes paid_invoices." "backend/app/agents/pay.py"
                 logAgent        = component "Log Agent"        "Structured rejection log." "backend/app/agents/log_node.py"
@@ -66,7 +66,7 @@ workspace "Acme AP — Invoice Processing" "C4 model for the invoice-processing 
         approveAgent    -> eventEmitter   "Emit progress events"
         payAgent        -> eventEmitter   "Emit progress events"
         logAgent        -> eventEmitter   "Emit progress events"
-        eventEmitter    -> runRegistry    "JSONL writes; SSE queue feed"
+        eventEmitter    -> runRegistry    "Writes JSONL; events fan out to SSE subscribers via the registry"
     }
 
     views {
@@ -87,6 +87,8 @@ workspace "Acme AP — Invoice Processing" "C4 model for the invoice-processing 
             autolayout lr
             description "C3 — Components of the Agent Orchestrator. The LangGraph nodes (ingest, validate, approve, pay, log) plus supporting components (rules engine, LLM tools, file loader, event emitter)."
         }
+
+        theme default
 
         styles {
             element "Person" {
@@ -122,7 +124,5 @@ workspace "Acme AP — Invoice Processing" "C4 model for the invoice-processing 
                 color "#0f172a"
             }
         }
-
-        theme default
     }
 }
