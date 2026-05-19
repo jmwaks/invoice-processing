@@ -6,7 +6,20 @@ workspace "Acme AP — Invoice Processing" "C4 model for the invoice-processing 
         acmeAp = softwareSystem "Acme AP — Invoice Processing" "Ingests invoices in six formats, validates against inventory, runs propose/critique/finalize approval, pays or logs." {
             frontendSpa = container "Frontend SPA" "Batch dashboard and Case File pages. Talks to Backend API via REST and SSE." "React 18, Vite, TypeScript, Tailwind, zustand, wouter" "WebApp"
             backendApi = container "Backend API" "REST endpoints under /api plus an SSE event stream per run." "FastAPI on uvicorn, Python 3.11+" "API"
-            orchestrator = container "Agent Orchestrator" "LangGraph state machine driving ingest -> validate -> approve -> pay/log. Shares the Backend API process." "Python, LangGraph"
+            orchestrator = container "Agent Orchestrator" "LangGraph state machine driving ingest -> validate -> approve -> pay/log. Shares the Backend API process." "Python, LangGraph" {
+                graphBuilder    = component "Graph Builder"    "Assembles LangGraph: ingest -> validate|log, validate -> approve, approve -> pay|log." "backend/app/graph/builder.py"
+                invoiceState    = component "Invoice State"    "Pydantic state passed between nodes: InvoiceState, InvoiceData, Decision, Proposal, Critique, ToolCall, SuspicionSignal." "backend/app/graph/state.py"
+                fileLoader      = component "File Loader"      "Six-format dispatch: TXT / JSON / CSV / XML / PDF / email." "backend/app/parsers/file_loader.py"
+                ingestAgent     = component "Ingest Agent"     "One Grok call with structured output; emits suspicion signals; retries once on validation failure." "backend/app/agents/ingest.py"
+                homoglyphCheck  = component "Homoglyph Check"  "Detects letter-for-digit substitutions in invoice numbers and dates." "backend/app/agents/homoglyph_check.py"
+                validateAgent   = component "Validate Agent"   "Deterministic SQL checks; surfaces 8 failure modes (missing vendor, unknown item, etc.)." "backend/app/agents/validate.py"
+                approveAgent    = component "Approve Agent"    "Investigate (tool loop) -> propose -> critique -> finalize." "backend/app/agents/approve.py"
+                payAgent        = component "Pay Agent"        "Records payment, writes paid_invoices." "backend/app/agents/pay.py"
+                logAgent        = component "Log Agent"        "Structured rejection log." "backend/app/agents/log_node.py"
+                rulesEngine     = component "Rules Engine"     "Hard blocks and gate thresholds; LLM cannot override hard blocks." "backend/app/rules/engine.py + rules.yaml"
+                llmTools        = component "LLM Tools"        "Function-calling tools: lookup_inventory, lookup_vendor, recompute_totals." "backend/app/tools/"
+                eventEmitter    = component "Event Emitter"    "Writes JSONL run logs and feeds the SSE stream." "backend/app/logging_/event_emitter.py"
+            }
             cli = container "CLI" "Alternative entrypoint that uses the same Orchestrator and LLM Gateway but skips the API layer." "Python (python -m app.main)"
             inventoryDb = container "Inventory DB" "Tables: inventory, vendors, paid_invoices. Persistent." "SQLite file (backend/data/inventory.db)" "Database"
             runRegistry = container "Run Registry" "In-memory run state plus per-run JSONL event logs. Cleared on restart (documented limitation)." "Python object + JSONL files"
@@ -31,6 +44,29 @@ workspace "Acme AP — Invoice Processing" "C4 model for the invoice-processing 
         orchestrator -> inventoryDb "Reads inventory and vendors; writes paid_invoices" "SQL"
         orchestrator -> mockPayment "Records payment receipt" "in-process"
         llmGateway -> grok "Chat completions, structured output, function calls" "HTTPS"
+
+        // Component-level (C3) relationships (inside Agent Orchestrator)
+        graphBuilder    -> ingestAgent    "Wires as entry node"
+        graphBuilder    -> validateAgent  "Wires after ingest"
+        graphBuilder    -> approveAgent   "Wires after validate"
+        graphBuilder    -> payAgent       "Wires on approved"
+        graphBuilder    -> logAgent       "Wires on rejected/needs_review/error"
+        ingestAgent     -> fileLoader     "Loads raw text per format"
+        ingestAgent     -> llmGateway     "Grok extraction with structured output"
+        ingestAgent     -> homoglyphCheck "Annotate invoice number / dates"
+        validateAgent   -> inventoryDb    "SQL reads"
+        approveAgent    -> llmGateway     "Propose / critique / finalize"
+        approveAgent    -> rulesEngine    "Hard blocks and gate thresholds"
+        approveAgent    -> llmTools       "Investigate phase (tool loop)"
+        llmTools        -> inventoryDb    "lookup_inventory / lookup_vendor"
+        payAgent        -> inventoryDb    "Insert into paid_invoices"
+        payAgent        -> mockPayment    "Record receipt"
+        ingestAgent     -> eventEmitter   "Emit progress events"
+        validateAgent   -> eventEmitter   "Emit progress events"
+        approveAgent    -> eventEmitter   "Emit progress events"
+        payAgent        -> eventEmitter   "Emit progress events"
+        logAgent        -> eventEmitter   "Emit progress events"
+        eventEmitter    -> runRegistry    "JSONL writes; SSE queue feed"
     }
 
     views {
