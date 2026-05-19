@@ -15,7 +15,22 @@ workspace "Acme AP — Invoice Processing" "C4 model for the invoice-processing 
 
         grok = softwareSystem "xAI Grok API" "Hosted LLM used for invoice extraction, approval proposer, adversarial critic, finalizer, and tool-use (function calling)." "External"
         mockPayment = softwareSystem "Mock Payment API" "Simulated payment side-effect performed by the pay agent. Records a receipt; no real money moves." "External"
-        // relationships added in Task 3
+        // System-level (C1) relationships
+        apOperator -> acmeAp "Uses (web UI on localhost:5173, CLI)"
+        acmeAp -> grok "Chat completions and tool calls" "HTTPS"
+        acmeAp -> mockPayment "Records payment receipt"
+
+        // Container-level (C2) relationships
+        apOperator -> frontendSpa "Drags invoices, reviews case files" "HTTPS"
+        apOperator -> cli "Runs invoices one-off or in batch" "shell"
+        frontendSpa -> backendApi "REST calls + SSE event stream" "JSON/HTTPS, text/event-stream"
+        backendApi -> orchestrator "Invokes graph per run (asyncio thread pool)" "in-process"
+        backendApi -> runRegistry "Creates runs, reads summaries, subscribes SSE queues" "in-process"
+        cli -> orchestrator "Invokes graph directly (no registry, no SSE)" "in-process"
+        orchestrator -> llmGateway "Extract / propose / critique / finalize / tool-use" "in-process"
+        orchestrator -> inventoryDb "Reads inventory and vendors; writes paid_invoices" "SQL"
+        orchestrator -> mockPayment "Records payment receipt" "in-process"
+        llmGateway -> grok "Chat completions, structured output, function calls" "HTTPS"
     }
 
     views {
